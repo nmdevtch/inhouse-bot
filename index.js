@@ -9,6 +9,8 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
+  ChannelType,
+  MessageFlags
 } from "discord.js";
 import dotenv from "dotenv";
 import express from "express";
@@ -93,9 +95,9 @@ const filas = {
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // =============== /registrar ===============
+    // ========= /registrar =========
     if (interaction.isChatInputCommand() && interaction.commandName === "registrar") {
-      await interaction.deferReply({ flags: 64 }); // atualizado para não usar 'ephemeral' depreciado
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const eloMenu = new StringSelectMenuBuilder()
         .setCustomId("menu_elo")
@@ -116,7 +118,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setPlaceholder("Selecione sua rota principal")
         .addOptions([
           { label: "Topo / Superior", value: "topo", emoji: "🔵" },
-          { label: "Jungler / Caçador", value: "jungle", emoji: "🟢" },
+          { label: "Jungle / Caçador", value: "jungle", emoji: "🟢" },
           { label: "Mid / Meio", value: "mid", emoji: "⚫" },
           { label: "ADC / Atirador", value: "adc", emoji: "🔹" },
           { label: "SUP / Suporte", value: "sup", emoji: "🟣" },
@@ -137,8 +139,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // =============== MENU SELEÇÃO ===============
+    // ========= MENU DE SELEÇÃO =========
     if (interaction.isStringSelectMenu()) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const guild = interaction.guild;
       const membro = await guild.members.fetch(interaction.user.id);
       const valor = interaction.values[0];
@@ -161,30 +164,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await membro.roles.add(jogadorRole);
       }
 
-      const insert = db.prepare(`
+      db.prepare(`
         INSERT INTO registros (user_id, username, ${tipo})
         VALUES (?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET ${tipo} = excluded.${tipo};
-      `);
-      insert.run(membro.id, membro.user.username, valor);
+      `).run(membro.id, membro.user.username, valor);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-        flags: 64, // substitui ephemeral
       });
       return;
     }
 
-    // =============== /meusdados ===============
+    // ========= /meusdados =========
     if (interaction.isChatInputCommand() && interaction.commandName === "meusdados") {
-      await interaction.deferReply({ flags: 64 });
-      const row = db
-        .prepare("SELECT * FROM registros WHERE user_id = ?")
-        .get(interaction.user.id);
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
       if (!row) {
-        await interaction.editReply({
-          content: "❌ Você ainda não possui registros!",
-        });
+        await interaction.editReply({ content: "❌ Você ainda não possui registros!" });
       } else {
         await interaction.editReply({
           content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
@@ -193,12 +190,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // =============== /queue ===============
+    // ========= /queue =========
     if (interaction.isChatInputCommand() && interaction.commandName === "queue") {
-      await interaction.deferReply({ flags: 64 });
-      const jogador = db
-        .prepare("SELECT * FROM registros WHERE user_id = ?")
-        .get(interaction.user.id);
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const jogador = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
 
       if (!jogador || !jogador.elo || !jogador.rota) {
         await interaction.editReply({
@@ -246,18 +241,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const jogadores = filas[serie].splice(0, 10);
         const categoria = await interaction.guild.channels.create({
           name: `Partida ${serie.toUpperCase()}`,
-          type: 4,
+          type: ChannelType.GuildCategory,
         });
 
         const canalVoz = await interaction.guild.channels.create({
           name: "🔊 Sala de Voz Inhouse",
-          type: 2,
+          type: ChannelType.GuildVoice,
           parent: categoria.id,
         });
 
         const canalTexto = await interaction.guild.channels.create({
           name: "💬 sala-texto-inhouse",
-          type: 0,
+          type: ChannelType.GuildText,
           parent: categoria.id,
         });
 
@@ -267,14 +262,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await canalTexto.send(
           `🎮 **Times encontrados para ${serie.toUpperCase()}!**\n🟥 **Time 1:** ${time1
             .map((id) => `<@${id}>`)
-            .join(", ")}\n🟦 **Time 2:** ${time2
-            .map((id) => `<@${id}>`)
-            .join(", ")}` 
+            .join(", ")}\n🟦 **Time 2:** ${time2.map((id) => `<@${id}>`).join(", ")}`
         );
       }
     }
   } catch (error) {
-    console.error("Erro na interação:", error);
+    console.error("❌ Erro na interação:", error);
     if (interaction.deferred && !interaction.replied) {
       await interaction.editReply({
         content: "❌ Ocorreu um erro ao executar o comando!",
@@ -282,11 +275,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } else if (!interaction.replied) {
       await interaction.reply({
         content: "❌ Ocorreu um erro ao executar o comando!",
-        flags: 64,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
 });
+
+// =====================
+// 🔸 CAPTURA GLOBAL DE ERROS
+// =====================
+process.on("unhandledRejection", (err) => console.error("⚠️ Rejeição não tratada:", err));
+process.on("uncaughtException", (err) => console.error("⚠️ Exceção não tratada:", err));
 
 // =====================
 // 🔸 LOGIN
