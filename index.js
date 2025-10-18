@@ -9,7 +9,7 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
-  InteractionResponseFlags
+  MessageFlags
 } from "discord.js";
 import dotenv from "dotenv";
 import express from "express";
@@ -114,12 +114,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         new ActionRowBuilder().addComponents(eloMenu),
         new ActionRowBuilder().addComponents(rotaMenu)
       ],
-      flags: InteractionResponseFlags.Ephemeral
+      flags: MessageFlags.Ephemeral
     });
   } catch (error) {
     console.error("Erro ao executar /registrar:", error);
     if (!interaction.replied)
-      await interaction.reply({ content: "❌ Ocorreu um erro ao executar o comando!", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Ocorreu um erro ao executar o comando!", flags: MessageFlags.Ephemeral });
   }
 });
 
@@ -165,13 +165,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied)
       await interaction.reply({
         content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-        flags: InteractionResponseFlags.Ephemeral
+        flags: MessageFlags.Ephemeral
       });
 
   } catch (error) {
     console.error("Erro ao processar menu:", error);
     if (!interaction.replied)
-      await interaction.reply({ content: "❌ Erro ao processar a seleção!", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Erro ao processar a seleção!", flags: MessageFlags.Ephemeral });
   }
 });
 
@@ -184,17 +184,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
     if (!row) {
-      await interaction.reply({ content: "❌ Você ainda não possui registros!", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Você ainda não possui registros!", flags: MessageFlags.Ephemeral });
     } else {
       await interaction.reply({
         content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
-        flags: InteractionResponseFlags.Ephemeral
+        flags: MessageFlags.Ephemeral
       });
     }
   } catch (error) {
     console.error("Erro ao buscar dados:", error);
     if (!interaction.replied)
-      await interaction.reply({ content: "❌ Erro ao consultar seus dados!", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Erro ao consultar seus dados!", flags: MessageFlags.Ephemeral });
   }
 });
 
@@ -207,7 +207,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const jogador = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
     if (!jogador || !jogador.elo || !jogador.rota) {
-      await interaction.reply({ content: "❌ Você precisa se registrar primeiro com `/registrar`!", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Você precisa se registrar primeiro com `/registrar`!", flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -225,17 +225,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case "ouro":
         serie = "serie_c"; break;
       default:
-        await interaction.reply({ content: "⚠️ Seu elo não se enquadra em nenhuma série válida.", flags: InteractionResponseFlags.Ephemeral });
+        await interaction.reply({ content: "⚠️ Seu elo não se enquadra em nenhuma série válida.", flags: MessageFlags.Ephemeral });
         return;
     }
 
     if (filas[serie].includes(interaction.user.id)) {
-      await interaction.reply({ content: `⚠️ Você já está na fila da **${serie.replace("_", " ").toUpperCase()}**.`, flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: `⚠️ Você já está na fila da **${serie.replace("_", " ").toUpperCase()}**.`, flags: MessageFlags.Ephemeral });
       return;
     }
 
     filas[serie].push(interaction.user.id);
-    await interaction.reply({ content: `✅ Você entrou na **fila da ${serie.replace("_", " ").toUpperCase()}** como **${jogador.rota.toUpperCase()}**.`, flags: InteractionResponseFlags.Ephemeral });
+    await interaction.reply({ content: `✅ Você entrou na **fila da ${serie.replace("_", " ").toUpperCase()}** como **${jogador.rota.toUpperCase()}**.`, flags: MessageFlags.Ephemeral });
 
     if (filas[serie].length >= 10) {
       const jogadores = filas[serie].splice(0, 10);
@@ -252,7 +252,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } catch (error) {
     console.error("Erro no comando /queue:", error);
     if (!interaction.replied)
-      await interaction.reply({ content: "❌ Ocorreu um erro ao tentar entrar na fila.", flags: InteractionResponseFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Ocorreu um erro ao tentar entrar na fila.", flags: MessageFlags.Ephemeral });
   }
 });
 
