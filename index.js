@@ -13,7 +13,8 @@ import {
 } from "discord.js";
 import dotenv from "dotenv";
 import express from "express";
-import db from "./database.js"; // Banco SQLite
+import db from "./database.js";
+
 dotenv.config();
 
 // =====================
@@ -40,6 +41,35 @@ client.once(Events.ClientReady, () => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
   client.user.setActivity("Registrando jogadores ⚔️", { type: 0 });
 });
+
+// =====================
+// 🔸 MAPA DE CARGOS
+// =====================
+const ROLES = {
+  topo: "1427195793168666634",
+  jungle: "1427195874454540339",
+  mid: "1427195943463419904",
+  adc: "1427196010769158179",
+  sup: "1427196093950591097",
+  ouro: "1427116853196488875",
+  platina: "1427116930719813642",
+  esmeralda: "1427117033958674432",
+  diamante: "1427117094549458944",
+  mestre: "1427117203853148170",
+  grao_mestre: "1428538683036012794",
+  desafiante: "1428538843392381071",
+  monarca: "1428538981976379464",
+  wildrift: "1426957458617663589"
+};
+
+// =====================
+// 🔸 FILAS
+// =====================
+const filas = {
+  serie_a: [],
+  serie_b: [],
+  serie_c: []
+};
 
 // =====================
 // 🔸 COMANDO /registrar
@@ -88,17 +118,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   } catch (error) {
     console.error("Erro ao executar /registrar:", error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: "❌ Ocorreu um erro ao executar o comando!",
-        flags: InteractionResponseFlags.Ephemeral
-      });
-    }
+    if (!interaction.replied)
+      await interaction.reply({ content: "❌ Ocorreu um erro ao executar o comando!", flags: InteractionResponseFlags.Ephemeral });
   }
 });
 
 // =====================
-// 🔸 INTERAÇÃO DE MENUS
+// 🔸 INTERAÇÃO DE MENUS (ELO/ROTA)
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isStringSelectMenu()) return;
@@ -106,23 +132,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const guild = interaction.guild;
     const membro = await guild.members.fetch(interaction.user.id);
-
-    const roles = {
-      "topo": "1427195793168666634",
-      "jungle": "1427195874454540339",
-      "mid": "1427195943463419904",
-      "adc": "1427196010769158179",
-      "sup": "1427196093950591097",
-      "ouro": "1427116853196488875",
-      "platina": "1427116930719813642",
-      "esmeralda": "1427117033958674432",
-      "diamante": "1427117094549458944",
-      "mestre": "1427117203853148170",
-      "grao_mestre": "1428538683036012794",
-      "desafiante": "1428538843392381071",
-      "monarca": "1428538981976379464",
-      "wildrift": "1426957458617663589"
-    };
+    const valor = interaction.values[0];
+    const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
 
     // 🔹 Remove cargo "Visitante"
     const visitanteRole = guild.roles.cache.find(r => r.name.toLowerCase().includes("visitante"));
@@ -131,23 +142,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     // 🔹 Adiciona cargo selecionado
-    const valor = interaction.values[0];
-    const roleId = roles[valor];
-    if (roleId) {
-      const role = guild.roles.cache.get(roleId);
-      if (role && !membro.roles.cache.has(role.id)) {
-        await membro.roles.add(role);
-      }
+    const roleId = ROLES[valor];
+    if (roleId && !membro.roles.cache.has(roleId)) {
+      await membro.roles.add(roleId);
     }
 
     // 🔹 Adiciona cargo “Jogador Wild Rift”
-    const jogadorRole = guild.roles.cache.get(roles["wildrift"]);
+    const jogadorRole = guild.roles.cache.get(ROLES["wildrift"]);
     if (jogadorRole && !membro.roles.cache.has(jogadorRole.id)) {
       await membro.roles.add(jogadorRole);
       console.log(`🎯 Cargo "Jogador Wild Rift" adicionado para ${membro.user.tag}`);
     }
-
-    const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
 
     // 🔹 Salva no banco
     const insert = db.prepare(`
@@ -157,20 +162,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     `);
     insert.run(membro.id, membro.user.username, valor);
 
-    if (!interaction.replied) {
+    if (!interaction.replied)
       await interaction.reply({
         content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
         flags: InteractionResponseFlags.Ephemeral
       });
-    }
+
   } catch (error) {
     console.error("Erro ao processar menu:", error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: "❌ Erro ao processar a seleção!",
-        flags: InteractionResponseFlags.Ephemeral
-      });
-    }
+    if (!interaction.replied)
+      await interaction.reply({ content: "❌ Erro ao processar a seleção!", flags: InteractionResponseFlags.Ephemeral });
   }
 });
 
@@ -183,10 +184,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
     if (!row) {
-      await interaction.reply({
-        content: "❌ Você ainda não possui registros!",
-        flags: InteractionResponseFlags.Ephemeral
-      });
+      await interaction.reply({ content: "❌ Você ainda não possui registros!", flags: InteractionResponseFlags.Ephemeral });
     } else {
       await interaction.reply({
         content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
@@ -195,34 +193,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     console.error("Erro ao buscar dados:", error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: "❌ Erro ao consultar seus dados!",
-        flags: InteractionResponseFlags.Ephemeral
-      });
-    }
+    if (!interaction.replied)
+      await interaction.reply({ content: "❌ Erro ao consultar seus dados!", flags: InteractionResponseFlags.Ephemeral });
   }
 });
 
 // =====================
 // 🔸 COMANDO /queue
 // =====================
-const filas = {
-  serie_a: [],
-  serie_b: [],
-  serie_c: []
-};
-
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() || interaction.commandName !== "queue") return;
 
   try {
     const jogador = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
     if (!jogador || !jogador.elo || !jogador.rota) {
-      await interaction.reply({
-        content: "❌ Você precisa se registrar primeiro com `/registrar`!",
-        flags: InteractionResponseFlags.Ephemeral
-      });
+      await interaction.reply({ content: "❌ Você precisa se registrar primeiro com `/registrar`!", flags: InteractionResponseFlags.Ephemeral });
       return;
     }
 
@@ -240,46 +225,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case "ouro":
         serie = "serie_c"; break;
       default:
-        await interaction.reply({
-          content: "⚠️ Seu elo não se enquadra em nenhuma série válida.",
-          flags: InteractionResponseFlags.Ephemeral
-        });
+        await interaction.reply({ content: "⚠️ Seu elo não se enquadra em nenhuma série válida.", flags: InteractionResponseFlags.Ephemeral });
         return;
     }
 
     if (filas[serie].includes(interaction.user.id)) {
-      await interaction.reply({
-        content: `⚠️ Você já está na fila da **${serie.replace("_", " ").toUpperCase()}**.`,
-        flags: InteractionResponseFlags.Ephemeral
-      });
+      await interaction.reply({ content: `⚠️ Você já está na fila da **${serie.replace("_", " ").toUpperCase()}**.`, flags: InteractionResponseFlags.Ephemeral });
       return;
     }
 
     filas[serie].push(interaction.user.id);
-    await interaction.reply({
-      content: `✅ Você entrou na **fila da ${serie.replace("_", " ").toUpperCase()}** como **${jogador.rota.toUpperCase()}**.`,
-      flags: InteractionResponseFlags.Ephemeral
-    });
+    await interaction.reply({ content: `✅ Você entrou na **fila da ${serie.replace("_", " ").toUpperCase()}** como **${jogador.rota.toUpperCase()}**.`, flags: InteractionResponseFlags.Ephemeral });
 
     if (filas[serie].length >= 10) {
       const jogadores = filas[serie].splice(0, 10);
+      const categoria = await interaction.guild.channels.create({ name: `Partida ${serie.toUpperCase()}`, type: 4 });
 
-      const categoria = await interaction.guild.channels.create({
-        name: `Partida ${serie.toUpperCase()}`,
-        type: 4
-      });
-
-      const canalVoz = await interaction.guild.channels.create({
-        name: "🔊 Sala de Voz Inhouse",
-        type: 2,
-        parent: categoria.id
-      });
-
-      const canalTexto = await interaction.guild.channels.create({
-        name: "💬 sala-texto-inhouse",
-        type: 0,
-        parent: categoria.id
-      });
+      const canalVoz = await interaction.guild.channels.create({ name: "🔊 Sala de Voz Inhouse", type: 2, parent: categoria.id });
+      const canalTexto = await interaction.guild.channels.create({ name: "💬 sala-texto-inhouse", type: 0, parent: categoria.id });
 
       const time1 = jogadores.slice(0, 5);
       const time2 = jogadores.slice(5, 10);
@@ -288,18 +251,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     console.error("Erro no comando /queue:", error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: "❌ Ocorreu um erro ao tentar entrar na fila.",
-        flags: InteractionResponseFlags.Ephemeral
-      });
-    }
+    if (!interaction.replied)
+      await interaction.reply({ content: "❌ Ocorreu um erro ao tentar entrar na fila.", flags: InteractionResponseFlags.Ephemeral });
   }
 });
 
 // =====================
 // 🔸 LOGIN
 // =====================
-client.login(process.env.TOKEN).catch(err => {
-  console.error("❌ Falha ao conectar o bot:", err);
-});
+client.login(process.env.TOKEN).catch(err => console.error("❌ Falha ao conectar o bot:", err));
