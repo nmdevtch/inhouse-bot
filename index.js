@@ -42,7 +42,7 @@ client.once(Events.ClientReady, () => {
 });
 
 // =====================
-// 🔸 COMANDO /registrAR
+// 🔸 COMANDO /registrar
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -103,8 +103,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isStringSelectMenu()) return;
 
   try {
-    const membro = interaction.member;
     const guild = interaction.guild;
+    const membro = await guild.members.fetch(interaction.user.id); // 🔹 GARANTE que pega o membro real
 
     const roles = {
       "topo": "1427195793168666634",
@@ -120,7 +120,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "grao_mestre": "1428538683036012794",
       "desafiante": "1428538843392381071",
       "monarca": "1428538981976379464",
-      "wildrift": "1426957458617663589" // 🔹 Coloque o ID real do cargo "Jogador Wild Rift"
+      "wildrift": "1426957458617663589" // ✅ Cargo "Jogador Wild Rift"
     };
 
     // 🔹 Remove cargo "Visitante"
@@ -134,13 +134,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const roleId = roles[valor];
     if (roleId) {
       const role = guild.roles.cache.get(roleId);
-      if (role) await membro.roles.add(role);
+      if (role && !membro.roles.cache.has(role.id)) {
+        await membro.roles.add(role);
+      }
     }
 
     // 🔹 Adiciona automaticamente o cargo “Jogador Wild Rift”
     const jogadorRole = guild.roles.cache.get(roles["wildrift"]);
     if (jogadorRole && !membro.roles.cache.has(jogadorRole.id)) {
       await membro.roles.add(jogadorRole);
+      console.log(`🎯 Cargo "Jogador Wild Rift" adicionado para ${membro.user.tag}`);
+    } else if (!jogadorRole) {
+      console.warn("⚠️ Cargo 'Jogador Wild Rift' não encontrado no servidor!");
     }
 
     const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
