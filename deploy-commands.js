@@ -1,25 +1,56 @@
-import 'dotenv/config';
-import { REST, Routes } from 'discord.js';
-import fs from 'fs';
+// =====================
+// 🔸 DEPLOY DE COMANDOS SLASH
+// =====================
+import { REST, Routes, SlashCommandBuilder } from "discord.js";
+import dotenv from "dotenv";
+dotenv.config();
 
-const commands = [];
-const foldersPath = './commands';
-const commandFiles = fs.readdirSync(foldersPath).filter(file => file.endsWith('.js'));
+// =====================
+// 🔹 CONFIGURAÇÃO
+// =====================
+const commands = [
+  new SlashCommandBuilder()
+    .setName("registrar")
+    .setDescription("🎮 Registre seu elo e rota para participar das Inhouses!"),
 
-for (const file of commandFiles) {
-  const command = await import(`./commands/${file}`);
-  commands.push(command.default.data.toJSON());
-}
+  new SlashCommandBuilder()
+    .setName("meusdados")
+    .setDescription("📊 Veja seus dados de registro (elo e rota)."),
 
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+  new SlashCommandBuilder()
+    .setName("queue")
+    .setDescription("⚔️ Entra na fila da sua série conforme seu elo."),
+].map((command) => command.toJSON());
 
-try {
-  console.log('🚀 Iniciando registro dos comandos Slash...');
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
-  console.log('✅ Comandos registrados com sucesso!');
-} catch (error) {
-  console.error('❌ Erro ao registrar os comandos:', error);
-}
+// =====================
+// 🔹 DEPLOY
+// =====================
+const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+// ⚠️ Troque pelo ID do seu bot e do seu servidor
+const CLIENT_ID = process.env.CLIENT_ID; // ID do bot
+const GUILD_ID = process.env.GUILD_ID;   // ID da sua guilda (servidor) — opcional
+
+(async () => {
+  try {
+    console.log("🔄 Atualizando comandos slash...");
+
+    // Se quiser registrar apenas no seu servidor (mais rápido para testes):
+    if (GUILD_ID) {
+      await rest.put(
+        Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+        { body: commands }
+      );
+      console.log("✅ Comandos registrados localmente na guild!");
+    } else {
+      // Registro global (leva ~1h para propagar)
+      await rest.put(
+        Routes.applicationCommands(CLIENT_ID),
+        { body: commands }
+      );
+      console.log("🌍 Comandos registrados globalmente!");
+    }
+  } catch (error) {
+    console.error("❌ Erro ao registrar comandos:", error);
+  }
+})();
