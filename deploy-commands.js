@@ -1,27 +1,15 @@
 import 'dotenv/config';
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 
+// --- Definição dos comandos
 const commands = [
   new SlashCommandBuilder()
     .setName('registrar')
-    .setDescription('Registra um jogador no sistema.')
-    .addStringOption(opt =>
-      opt.setName('nome').setDescription('Seu nick').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('rota')
-        .setDescription('Sua rota principal')
-        .setRequired(true)
-        .addChoices(
-          { name: 'Topo', value: 'Topo' },
-          { name: 'Selva', value: 'Selva' },
-          { name: 'Meio', value: 'Meio' },
-          { name: 'Atirador', value: 'Atirador' },
-          { name: 'Suporte', value: 'Suporte' }
-        )),
-
+    .setDescription('Inicia seu registro no sistema Inhouse Wild Rift.'),
+  
   new SlashCommandBuilder()
     .setName('queue')
-    .setDescription('Entra na fila para jogar.'),
+    .setDescription('Entra na fila para jogar uma partida Inhouse.'),
 
   new SlashCommandBuilder()
     .setName('sairdafila')
@@ -29,26 +17,32 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('fila')
-    .setDescription('Mostra os jogadores na fila.')
+    .setDescription('Mostra todos os jogadores atualmente na fila.')
 ].map(cmd => cmd.toJSON());
 
+// --- Inicialização do REST
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-try {
-  console.log('🚀 Atualizando comandos...');
+async function deployCommands() {
+  try {
+    console.log('🚀 Iniciando atualização dos comandos Slash...');
 
-  // ✅ Se tiver GUILD_ID, faz deploy instantâneo no servidor
-  if (process.env.GUILD_ID) {
-    await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
-      { body: commands }
-    );
-    console.log('✅ Comandos registrados instantaneamente no servidor!');
-  } else {
-    // 🌍 Fallback: registro global (pode demorar até 1h)
-    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-    console.log('🌍 Comandos globais registrados (pode levar até 1 hora).');
+    if (process.env.GUILD_ID) {
+      // ✅ Deploy instantâneo no servidor (guild)
+      await rest.put(
+        Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+        { body: commands }
+      );
+      console.log(`✅ Comandos registrados instantaneamente no servidor ${process.env.GUILD_ID}!`);
+    } else {
+      // 🌍 Fallback: registro global
+      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+      console.log('🌍 Comandos globais registrados (pode levar até 1 hora para aparecerem).');
+    }
+  } catch (error) {
+    console.error('❌ Erro ao registrar comandos:', error);
   }
-} catch (error) {
-  console.error('❌ Erro ao registrar comandos:', error);
 }
+
+// Executa automaticamente o deploy
+deployCommands();
