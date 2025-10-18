@@ -8,7 +8,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // --- Web server (para manter ativo em plataformas de deploy)
 const app = express();
 app.get('/', (_, res) => res.send('Inhouse Bot está ativo!'));
-app.listen(process.env.PORT || 3000, () => console.log('🌐 Servidor web ativo!'));
+app.listen(process.env.PORT || 4000, () => console.log('🌐 Servidor web ativo!'));
 
 // --- Bot pronto
 client.once('ready', () => {
