@@ -20,7 +20,7 @@ dotenv.config();
 // =====================
 const app = express();
 app.get("/", (req, res) => res.send("✅ Bot de registro Inhouse está ativo!"));
-app.listen(3000, () => console.log("🌐 Keep-alive ativo na porta 3000!"));
+app.listen(4000, () => console.log("🌐 Keep-alive ativo na porta 4000!"));
 
 // =====================
 // 🔸 CLIENT DISCORD
