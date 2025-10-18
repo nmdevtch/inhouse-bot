@@ -2,20 +2,30 @@ import { REST, Routes, SlashCommandBuilder } from "discord.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-// === DEFINIÇÃO DOS COMANDOS ===
+// ==========================
+// 🔹 DEFINIÇÃO DOS COMANDOS
+// ==========================
 const commands = [
   new SlashCommandBuilder()
     .setName("registrar")
-    .setDescription("Registre seu elo e rota principal para participar das inhouses!")
+    .setDescription("Registre seu elo e rota principal para participar das inhouses!"),
+
+  new SlashCommandBuilder()
+    .setName("meusdados")
+    .setDescription("Veja suas informações de elo e rota registradas."),
 ].map(command => command.toJSON());
 
-// === CONFIGURAÇÃO DO REST ===
+// ==========================
+// 🔹 CONFIGURAÇÃO DO REST
+// ==========================
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-// === FUNÇÃO PRINCIPAL ===
+// ==========================
+// 🔹 DEPLOY DOS COMANDOS
+// ==========================
 (async () => {
   try {
-    console.log("🚀 Iniciando registro de comandos...");
+    console.log("🚀 Iniciando registro dos comandos Slash...");
 
     await rest.put(
       Routes.applicationGuildCommands(
@@ -25,11 +35,12 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
       { body: commands }
     );
 
-    console.log("✅ Comando /registrar registrado com sucesso!");
+    console.log(`✅ ${commands.length} comandos registrados com sucesso!`);
+    commands.forEach(cmd => console.log(`   → /${cmd.name}`));
   } catch (error) {
-    console.error("❌ Falha ao registrar o comando /registrar:");
+    console.error("❌ Erro ao registrar comandos Slash:");
     if (error.response?.data) {
-      console.error("Detalhes:", JSON.stringify(error.response.data, null, 2));
+      console.error("📄 Detalhes:", JSON.stringify(error.response.data, null, 2));
     } else {
       console.error(error);
     }

@@ -1,3 +1,6 @@
+// =====================
+// 🔸 IMPORTS
+// =====================
 import {
   Client,
   GatewayIntentBits,
@@ -8,7 +11,8 @@ import {
   EmbedBuilder
 } from "discord.js";
 import dotenv from "dotenv";
-import express from "express"; // 🔹 Para manter o bot ativo (Render)
+import express from "express";
+import db from "./database.js"; // 🔹 Banco de dados interno SQLite
 dotenv.config();
 
 // =====================
@@ -79,7 +83,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         new ActionRowBuilder().addComponents(eloMenu),
         new ActionRowBuilder().addComponents(rotaMenu),
       ],
-      ephemeral: true, // ✅ substitui 'flags: 64'
+      ephemeral: true,
     });
   }
 });
@@ -125,11 +129,38 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (role) await membro.roles.add(role);
   }
 
-  const tipo = interaction.customId === "menu_elo" ? "Elo" : "Rota Principal";
+  const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
+
+  // 🔹 Salva no banco de dados
+  const insert = db.prepare(`
+    INSERT INTO registros (user_id, username, ${tipo})
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET ${tipo} = excluded.${tipo};
+  `);
+  insert.run(membro.id, membro.user.username, valor);
+
   await interaction.reply({
-    content: `✅ ${tipo} definido como **${valor.replace("_", " ")}**!\nSeu cargo de Visitante foi removido.`,
+    content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
     ephemeral: true,
   });
+});
+
+// =====================
+// 🔸 COMANDO /meusdados
+// =====================
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName === "meusdados") {
+    const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
+    if (!row) {
+      await interaction.reply({ content: "❌ Você ainda não possui registros!", ephemeral: true });
+    } else {
+      await interaction.reply({
+        content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
+        ephemeral: true,
+      });
+    }
+  }
 });
 
 // =====================
