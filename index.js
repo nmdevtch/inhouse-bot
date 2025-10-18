@@ -9,45 +9,40 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
-  InteractionResponseFlags,
+  InteractionResponseFlags
 } from "discord.js";
 import dotenv from "dotenv";
 import express from "express";
-import db from "./database.js"; // 🔹 Banco SQLite interno
-
+import db from "./database.js"; // Banco SQLite
 dotenv.config();
 
 // =====================
-// 🔸 KEEP-ALIVE (Render / Pella)
+// 🔸 KEEP-ALIVE SERVER
 // =====================
 const app = express();
 const PORT = process.env.PORT || 4000;
-
 app.get("/", (req, res) => res.send("✅ Bot de registro Inhouse está ativo e rodando!"));
 app.listen(PORT, () => console.log(`🌐 Keep-alive ativo na porta ${PORT}!`));
 
 // =====================
-// 🔸 CLIENT DISCORD
+// 🔸 DISCORD CLIENT
 // =====================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessages
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel]
 });
 
-// =====================
-// 🔸 EVENTO DE INICIALIZAÇÃO
-// =====================
 client.once(Events.ClientReady, () => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
   client.user.setActivity("Registrando jogadores ⚔️", { type: 0 });
 });
 
 // =====================
-// 🔸 COMANDO /registrar
+// 🔸 COMANDO /registrAR
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -89,15 +84,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       embeds: [embed],
       components: [
         new ActionRowBuilder().addComponents(eloMenu),
-        new ActionRowBuilder().addComponents(rotaMenu),
+        new ActionRowBuilder().addComponents(rotaMenu)
       ],
-      flags: InteractionResponseFlags.Ephemeral, // 👈 substitui "ephemeral: true"
+      flags: InteractionResponseFlags.Ephemeral
     });
   } catch (error) {
-    console.error("❌ Erro ao executar /registrar:", error);
+    console.error("Erro ao executar /registrar:", error);
     await interaction.reply({
       content: "❌ Ocorreu um erro ao executar o comando!",
-      flags: InteractionResponseFlags.Ephemeral,
+      flags: InteractionResponseFlags.Ephemeral
     });
   }
 });
@@ -113,25 +108,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const guild = interaction.guild;
 
     const roles = {
-      topo: "1427195793168666634",
-      jungle: "1427195874454540339",
-      mid: "1427195943463419904",
-      adc: "1427196010769158179",
-      sup: "1427196093950591097",
-      ouro: "1427116853196488875",
-      platina: "1427116930719813642",
-      esmeralda: "1427117033958674432",
-      diamante: "1427117094549458944",
-      mestre: "1427117203853148170",
-      grao_mestre: "1428538683036012794",
-      desafiante: "1428538843392381071",
-      monarca: "1428538981976379464",
+      "topo": "1427195793168666634",
+      "jungle": "1427195874454540339",
+      "mid": "1427195943463419904",
+      "adc": "1427196010769158179",
+      "sup": "1427196093950591097",
+      "ouro": "1427116853196488875",
+      "platina": "1427116930719813642",
+      "esmeralda": "1427117033958674432",
+      "diamante": "1427117094549458944",
+      "mestre": "1427117203853148170",
+      "grao_mestre": "1428538683036012794",
+      "desafiante": "1428538843392381071",
+      "monarca": "1428538981976379464",
+      "wildrift": "1426957458617663589" // 🔹 Coloque o ID real do cargo "Jogador Wild Rift"
     };
 
     // 🔹 Remove cargo "Visitante"
-    const visitanteRole = guild.roles.cache.find((r) =>
-      r.name.toLowerCase().includes("visitante")
-    );
+    const visitanteRole = guild.roles.cache.find(r => r.name.toLowerCase().includes("visitante"));
     if (visitanteRole && membro.roles.cache.has(visitanteRole.id)) {
       await membro.roles.remove(visitanteRole);
     }
@@ -142,6 +136,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (roleId) {
       const role = guild.roles.cache.get(roleId);
       if (role) await membro.roles.add(role);
+    }
+
+    // 🔹 Adiciona automaticamente o cargo “Jogador Wild Rift”
+    const jogadorRole = guild.roles.cache.get(roles["wildrift"]);
+    if (jogadorRole && !membro.roles.cache.has(jogadorRole.id)) {
+      await membro.roles.add(jogadorRole);
     }
 
     const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
@@ -156,13 +156,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.reply({
       content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-      flags: InteractionResponseFlags.Ephemeral,
+      flags: InteractionResponseFlags.Ephemeral
     });
   } catch (error) {
-    console.error("❌ Erro ao processar menu:", error);
+    console.error("Erro ao processar menu:", error);
     await interaction.reply({
       content: "❌ Erro ao processar a seleção!",
-      flags: InteractionResponseFlags.Ephemeral,
+      flags: InteractionResponseFlags.Ephemeral
     });
   }
 });
@@ -179,31 +179,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!row) {
       await interaction.reply({
         content: "❌ Você ainda não possui registros!",
-        flags: InteractionResponseFlags.Ephemeral,
+        flags: InteractionResponseFlags.Ephemeral
       });
     } else {
       await interaction.reply({
         content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
-        flags: InteractionResponseFlags.Ephemeral,
+        flags: InteractionResponseFlags.Ephemeral
       });
     }
   } catch (error) {
-    console.error("❌ Erro ao buscar dados:", error);
+    console.error("Erro ao buscar dados:", error);
     await interaction.reply({
       content: "❌ Erro ao consultar seus dados!",
-      flags: InteractionResponseFlags.Ephemeral,
+      flags: InteractionResponseFlags.Ephemeral
     });
   }
 });
 
 // =====================
-// 🔸 LOGIN DO BOT
+// 🔸 LOGIN
 // =====================
-if (!process.env.TOKEN) {
-  console.error("❌ TOKEN não definido nas variáveis de ambiente!");
-  process.exit(1);
-}
-
-client.login(process.env.TOKEN).catch((err) => {
+client.login(process.env.TOKEN).catch(err => {
   console.error("❌ Falha ao conectar o bot:", err);
 });
