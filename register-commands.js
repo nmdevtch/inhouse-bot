@@ -16,7 +16,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("queue")
-    .setDescription("Entre na fila da sua série conforme o seu elo registrado!"),
+    .setDescription("Entre na fila da sua série de acordo com seu elo e rota registrada."),
 ].map(command => command.toJSON());
 
 // ==========================
@@ -31,7 +31,6 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
   try {
     console.log("🚀 Iniciando registro dos comandos Slash...");
 
-    // Publica os comandos no servidor específico (Guild Commands)
     await rest.put(
       Routes.applicationGuildCommands(
         process.env.CLIENT_ID,
@@ -41,15 +40,11 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
     );
 
     console.log(`✅ ${commands.length} comandos registrados com sucesso!`);
-    commands.forEach(cmd =>
-      console.log(`   → /${cmd.name}`)
-    );
-
-    console.log("✨ Atualização concluída! Se os comandos não aparecerem imediatamente, aguarde até 1 minuto e reabra o Discord.");
+    commands.forEach(cmd => console.log(`   → /${cmd.name}`));
   } catch (error) {
     console.error("❌ Erro ao registrar comandos Slash:");
     if (error.response?.data) {
-      console.error("📄 Detalhes do erro:", JSON.stringify(error.response.data, null, 2));
+      console.error("📄 Detalhes:", JSON.stringify(error.response.data, null, 2));
     } else {
       console.error(error);
     }
