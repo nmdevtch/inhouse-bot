@@ -5,17 +5,17 @@ import db from './database.js';
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// --- Web server (para manter ativo em plataformas de deploy)
+// --- Servidor web (mantém ativo no deploy)
 const app = express();
-app.get('/', (_, res) => res.send('Inhouse Bot está ativo!'));
-app.listen(process.env.PORT || 4000, () => console.log('🌐 Servidor web ativo!'));
+app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
+app.listen(process.env.PORT || 3000, () => console.log('🚀 Servidor web ativo!'));
 
-// --- Bot pronto
-client.once('ready', () => {
-  console.log(`✅ Bot conectado como ${client.user.tag}`);
+// --- Evento clientReady (substitui "ready" para evitar warnings)
+client.once('clientReady', () => {
+  console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
-// --- Interações de comandos
+// --- Interações dos comandos
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -31,7 +31,7 @@ client.on('interactionCreate', async (interaction) => {
 
       await interaction.reply({
         content: `✅ ${user.username}, você foi registrado como **${name}** (${role}).`,
-        flags: 64
+        flags: 64 // substitui ephemeral: true
       });
     }
 
@@ -73,10 +73,11 @@ client.on('interactionCreate', async (interaction) => {
     }
   } catch (err) {
     console.error(err);
-    await interaction.reply({
-      content: '❌ Ocorreu um erro ao executar o comando.',
-      flags: 64
-    });
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: '❌ Ocorreu um erro ao executar o comando.', flags: 64 });
+    } else {
+      await interaction.reply({ content: '❌ Ocorreu um erro ao executar o comando.', flags: 64 });
+    }
   }
 });
 
