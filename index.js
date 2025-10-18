@@ -77,8 +77,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const embed = new EmbedBuilder()
       .setColor("#5865F2")
       .setTitle("🎮 Registro de Inhouse")
-      .setDescription("Selecione seu **Elo** e **Rota Principal** abaixo para receber seus cargos!")
-      .setThumbnail("https://i.imgur.com/lbRcM8B.png");
+      .setDescription("Selecione seu **Elo** e **Rota Principal** abaixo para receber seus cargos!");
 
     await interaction.reply({
       embeds: [embed],
