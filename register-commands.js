@@ -16,7 +16,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("queue")
-    .setDescription("Entre na fila da sua série de acordo com seu elo e rota registrada."),
+    .setDescription("Entra na fila de inhouse conforme seu elo e rota registrados.")
 ].map(command => command.toJSON());
 
 // ==========================
