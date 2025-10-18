@@ -13,6 +13,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName("meusdados")
     .setDescription("Veja suas informações de elo e rota registradas."),
+
+  new SlashCommandBuilder()
+    .setName("queue")
+    .setDescription("Entre na fila da sua série conforme o seu elo registrado!"),
 ].map(command => command.toJSON());
 
 // ==========================
