@@ -36,8 +36,19 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 try {
   console.log('🚀 Atualizando comandos...');
-  await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-  console.log('✅ Comandos registrados com sucesso!');
+
+  // ✅ Se tiver GUILD_ID, faz deploy instantâneo no servidor
+  if (process.env.GUILD_ID) {
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands }
+    );
+    console.log('✅ Comandos registrados instantaneamente no servidor!');
+  } else {
+    // 🌍 Fallback: registro global (pode demorar até 1h)
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+    console.log('🌍 Comandos globais registrados (pode levar até 1 hora).');
+  }
 } catch (error) {
   console.error('❌ Erro ao registrar comandos:', error);
 }
