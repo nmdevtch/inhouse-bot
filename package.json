@@ -9,10 +9,10 @@
     "deploy": "node deploy-commands.js"
   },
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
-    "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "better-sqlite3": "^12.4.1",
+    "discord.js": "^14.23.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -21,8 +21,9 @@
     "discord",
     "bot",
     "inhouse",
-    "Wild Rift",
-    "discordjs"
+    "wildrift",
+    "discordjs",
+    "lol"
   ],
   "author": "Natã de Mattos",
   "license": "MIT"
