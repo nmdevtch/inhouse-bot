@@ -9,6 +9,7 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
+  InteractionResponseFlags,
 } from "discord.js";
 import dotenv from "dotenv";
 import express from "express";
@@ -90,13 +91,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         new ActionRowBuilder().addComponents(eloMenu),
         new ActionRowBuilder().addComponents(rotaMenu),
       ],
-      ephemeral: true,
+      flags: InteractionResponseFlags.Ephemeral, // 👈 substitui "ephemeral: true"
     });
   } catch (error) {
     console.error("❌ Erro ao executar /registrar:", error);
     await interaction.reply({
       content: "❌ Ocorreu um erro ao executar o comando!",
-      ephemeral: true,
+      flags: InteractionResponseFlags.Ephemeral,
     });
   }
 });
@@ -155,13 +156,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.reply({
       content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-      ephemeral: true,
+      flags: InteractionResponseFlags.Ephemeral,
     });
   } catch (error) {
     console.error("❌ Erro ao processar menu:", error);
     await interaction.reply({
       content: "❌ Erro ao processar a seleção!",
-      ephemeral: true,
+      flags: InteractionResponseFlags.Ephemeral,
     });
   }
 });
@@ -176,16 +177,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
     if (!row) {
-      await interaction.reply({ content: "❌ Você ainda não possui registros!", ephemeral: true });
+      await interaction.reply({
+        content: "❌ Você ainda não possui registros!",
+        flags: InteractionResponseFlags.Ephemeral,
+      });
     } else {
       await interaction.reply({
         content: `📊 **Seus dados:**\n- Elo: **${row.elo || "Não definido"}**\n- Rota: **${row.rota || "Não definida"}**`,
-        ephemeral: true,
+        flags: InteractionResponseFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error("❌ Erro ao buscar dados:", error);
-    await interaction.reply({ content: "❌ Erro ao consultar seus dados!", ephemeral: true });
+    await interaction.reply({
+      content: "❌ Erro ao consultar seus dados!",
+      flags: InteractionResponseFlags.Ephemeral,
+    });
   }
 });
 
