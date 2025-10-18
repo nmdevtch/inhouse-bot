@@ -1,55 +1,54 @@
-// =====================
-// 🔸 DEPLOY DE COMANDOS SLASH
-// =====================
-import { REST, Routes, SlashCommandBuilder } from "discord.js";
+// ============================
+// 🔸 deploy-commands.js
+// ============================
+
+import { REST, Routes } from "discord.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-// =====================
-// 🔹 CONFIGURAÇÃO
-// =====================
+const { CLIENT_ID, GUILD_ID, TOKEN, NODE_ENV } = process.env;
+
+// ============================
+// 🔸 Lista de Comandos
+// ============================
 const commands = [
-  new SlashCommandBuilder()
-    .setName("registrar")
-    .setDescription("🎮 Registre seu elo e rota para participar das Inhouses!"),
+  {
+    name: "registrar",
+    description: "Registre seu elo e rota para participar das inhouses.",
+  },
+  {
+    name: "meusdados",
+    description: "Veja seus dados registrados (elo e rota principal).",
+  },
+];
 
-  new SlashCommandBuilder()
-    .setName("meusdados")
-    .setDescription("📊 Veja seus dados de registro (elo e rota)."),
+// ============================
+// 🔸 Inicializa REST client
+// ============================
+const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-  new SlashCommandBuilder()
-    .setName("queue")
-    .setDescription("⚔️ Entra na fila da sua série conforme seu elo."),
-].map((command) => command.toJSON());
-
-// =====================
-// 🔹 DEPLOY
-// =====================
-const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-
-// ⚠️ Troque pelo ID do seu bot e do seu servidor
-const CLIENT_ID = process.env.CLIENT_ID; // ID do bot
-const GUILD_ID = process.env.GUILD_ID;   // ID da sua guilda (servidor) — opcional
-
+// ============================
+// 🔸 Função principal
+// ============================
 (async () => {
   try {
-    console.log("🔄 Atualizando comandos slash...");
+    console.log("🔁 Iniciando deploy dos comandos...");
 
-    // Se quiser registrar apenas no seu servidor (mais rápido para testes):
-    if (GUILD_ID) {
-      await rest.put(
-        Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-        { body: commands }
-      );
-      console.log("✅ Comandos registrados localmente na guild!");
+    const isProduction = NODE_ENV === "production";
+
+    if (isProduction) {
+      // 🌍 Deploy Global — visível em todos os servidores (demora até 1 hora)
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+      console.log("✅ Comandos (/) globais atualizados com sucesso!");
     } else {
-      // Registro global (leva ~1h para propagar)
-      await rest.put(
-        Routes.applicationCommands(CLIENT_ID),
-        { body: commands }
-      );
-      console.log("🌍 Comandos registrados globalmente!");
+      // 🧪 Deploy Local (Guild) — instantâneo no servidor de teste
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
+        body: commands,
+      });
+      console.log(`✅ Comandos (/) atualizados com sucesso no servidor: ${GUILD_ID}`);
     }
+
+    console.log("🎯 Deploy finalizado sem warnings!");
   } catch (error) {
     console.error("❌ Erro ao registrar comandos:", error);
   }
