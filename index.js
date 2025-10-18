@@ -8,8 +8,19 @@ import {
   EmbedBuilder
 } from "discord.js";
 import dotenv from "dotenv";
+import express from "express"; // 🔹 Para manter o bot ativo (Render)
 dotenv.config();
 
+// =====================
+// 🔸 KEEP-ALIVE (Render)
+// =====================
+const app = express();
+app.get("/", (req, res) => res.send("✅ Bot de registro Inhouse está ativo!"));
+app.listen(3000, () => console.log("🌐 Keep-alive ativo na porta 3000!"));
+
+// =====================
+// 🔸 CLIENT DISCORD
+// =====================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -24,7 +35,9 @@ client.once(Events.ClientReady, () => {
   console.log(`✅ Bot iniciado como ${client.user.tag}`);
 });
 
-// Quando o comando /registrar for usado
+// =====================
+// 🔸 COMANDO /registrar
+// =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -64,14 +77,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       embeds: [embed],
       components: [
         new ActionRowBuilder().addComponents(eloMenu),
-        new ActionRowBuilder().addComponents(rotaMenu)
+        new ActionRowBuilder().addComponents(rotaMenu),
       ],
-      flags: 64 // Ephemeral (privado)
+      ephemeral: true, // ✅ substitui 'flags: 64'
     });
   }
 });
 
-// Quando o usuário selecionar algo no menu
+// =====================
+// 🔸 INTERAÇÃO DE MENUS
+// =====================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isStringSelectMenu()) return;
 
@@ -94,7 +109,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     "monarca": "1428538981976379464"
   };
 
-  // Remove o cargo "Visitante"
+  // 🔹 Remove o cargo "Visitante"
   const visitanteRole = guild.roles.cache.find(r =>
     r.name.toLowerCase().includes("visitante")
   );
@@ -102,9 +117,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await membro.roles.remove(visitanteRole);
   }
 
+  // 🔹 Adiciona cargo selecionado
   const valor = interaction.values[0];
   const roleId = roles[valor];
-
   if (roleId) {
     const role = guild.roles.cache.get(roleId);
     if (role) await membro.roles.add(role);
@@ -113,8 +128,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const tipo = interaction.customId === "menu_elo" ? "Elo" : "Rota Principal";
   await interaction.reply({
     content: `✅ ${tipo} definido como **${valor.replace("_", " ")}**!\nSeu cargo de Visitante foi removido.`,
-    flags: 64
+    ephemeral: true,
   });
 });
 
+// =====================
+// 🔸 LOGIN
+// =====================
 client.login(process.env.TOKEN);
