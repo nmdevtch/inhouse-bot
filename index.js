@@ -45,8 +45,7 @@ client.once(Events.ClientReady, () => {
 // 🔸 COMANDO /registrar
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "registrar") return;
+  if (!interaction.isChatInputCommand() || interaction.commandName !== "registrar") return;
 
   try {
     const eloMenu = new StringSelectMenuBuilder()
@@ -89,10 +88,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   } catch (error) {
     console.error("Erro ao executar /registrar:", error);
-    await interaction.reply({
-      content: "❌ Ocorreu um erro ao executar o comando!",
-      flags: InteractionResponseFlags.Ephemeral
-    });
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Ocorreu um erro ao executar o comando!",
+        flags: InteractionResponseFlags.Ephemeral
+      });
+    }
   }
 });
 
@@ -104,7 +105,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   try {
     const guild = interaction.guild;
-    const membro = await guild.members.fetch(interaction.user.id); // 🔹 GARANTE que pega o membro real
+    const membro = await guild.members.fetch(interaction.user.id);
 
     const roles = {
       "topo": "1427195793168666634",
@@ -120,7 +121,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "grao_mestre": "1428538683036012794",
       "desafiante": "1428538843392381071",
       "monarca": "1428538981976379464",
-      "wildrift": "1426957458617663589" // ✅ Cargo "Jogador Wild Rift"
+      "wildrift": "1426957458617663589"
     };
 
     // 🔹 Remove cargo "Visitante"
@@ -129,7 +130,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await membro.roles.remove(visitanteRole);
     }
 
-    // 🔹 Adiciona o cargo selecionado
+    // 🔹 Adiciona cargo selecionado
     const valor = interaction.values[0];
     const roleId = roles[valor];
     if (roleId) {
@@ -139,13 +140,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    // 🔹 Adiciona automaticamente o cargo “Jogador Wild Rift”
+    // 🔹 Adiciona cargo “Jogador Wild Rift”
     const jogadorRole = guild.roles.cache.get(roles["wildrift"]);
     if (jogadorRole && !membro.roles.cache.has(jogadorRole.id)) {
       await membro.roles.add(jogadorRole);
       console.log(`🎯 Cargo "Jogador Wild Rift" adicionado para ${membro.user.tag}`);
-    } else if (!jogadorRole) {
-      console.warn("⚠️ Cargo 'Jogador Wild Rift' não encontrado no servidor!");
     }
 
     const tipo = interaction.customId === "menu_elo" ? "elo" : "rota";
@@ -158,16 +157,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
     `);
     insert.run(membro.id, membro.user.username, valor);
 
-    await interaction.reply({
-      content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-      flags: InteractionResponseFlags.Ephemeral
-    });
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
+        flags: InteractionResponseFlags.Ephemeral
+      });
+    }
   } catch (error) {
     console.error("Erro ao processar menu:", error);
-    await interaction.reply({
-      content: "❌ Erro ao processar a seleção!",
-      flags: InteractionResponseFlags.Ephemeral
-    });
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Erro ao processar a seleção!",
+        flags: InteractionResponseFlags.Ephemeral
+      });
+    }
   }
 });
 
@@ -175,8 +178,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 // 🔸 COMANDO /meusdados
 // =====================
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "meusdados") return;
+  if (!interaction.isChatInputCommand() || interaction.commandName !== "meusdados") return;
 
   try {
     const row = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
@@ -193,10 +195,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     console.error("Erro ao buscar dados:", error);
-    await interaction.reply({
-      content: "❌ Erro ao consultar seus dados!",
-      flags: InteractionResponseFlags.Ephemeral
-    });
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Erro ao consultar seus dados!",
+        flags: InteractionResponseFlags.Ephemeral
+      });
+    }
   }
 });
 
