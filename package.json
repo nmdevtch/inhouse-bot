@@ -1,14 +1,16 @@
 {
   "name": "inhouse-bot",
   "version": "1.0.0",
-  "description": "Bot de registro para servidores de inhouse de Wild Rift. Feito em JavaScript com Discord.js v15.",
+  "description": "Bot de registro para servidor de inhouse",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "register": "node register-commands.js",
+    "check": "node check-permissions.js"
   },
   "dependencies": {
-    "discord.js": "^15.6.0",
-    "dotenv": "^16.0.3"
+    "discord.js": "^15.5.0",
+    "dotenv": "^16.4.5"
   }
 }
