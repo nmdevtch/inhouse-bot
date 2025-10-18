@@ -1,24 +1,21 @@
-// database.js
 import Database from "better-sqlite3";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, "inhouse.db");
-
-const db = new Database(dbPath);
+const db = new Database("inhouse.db");
 
 db.prepare(`
-  CREATE TABLE IF NOT EXISTS registros (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT UNIQUE,
-    username TEXT,
-    elo TEXT,
-    rota TEXT,
-    data_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+  CREATE TABLE IF NOT EXISTS players (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    role TEXT
   )
 `).run();
 
-console.log("💾 Banco de dados SQLite conectado com sucesso!");
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS queue (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    role TEXT
+  )
+`).run();
+
 export default db;
