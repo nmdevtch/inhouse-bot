@@ -13,10 +13,11 @@ import {
 import dotenv from "dotenv";
 import express from "express";
 import db from "./database.js"; // 🔹 Banco SQLite interno
+
 dotenv.config();
 
 // =====================
-// 🔸 KEEP-ALIVE (Render)
+// 🔸 KEEP-ALIVE (Render / Pella)
 // =====================
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -36,7 +37,9 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// ✅ Evento de inicialização
+// =====================
+// 🔸 EVENTO DE INICIALIZAÇÃO
+// =====================
 client.once(Events.ClientReady, () => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
   client.user.setActivity("Registrando jogadores ⚔️", { type: 0 });
@@ -90,7 +93,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ephemeral: true,
     });
   } catch (error) {
-    console.error("Erro ao executar /registrar:", error);
+    console.error("❌ Erro ao executar /registrar:", error);
     await interaction.reply({
       content: "❌ Ocorreu um erro ao executar o comando!",
       ephemeral: true,
@@ -109,23 +112,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const guild = interaction.guild;
 
     const roles = {
-      "topo": "1427195793168666634",
-      "jungle": "1427195874454540339",
-      "mid": "1427195943463419904",
-      "adc": "1427196010769158179",
-      "sup": "1427196093950591097",
-      "ouro": "1427116853196488875",
-      "platina": "1427116930719813642",
-      "esmeralda": "1427117033958674432",
-      "diamante": "1427117094549458944",
-      "mestre": "1427117203853148170",
-      "grao_mestre": "1428538683036012794",
-      "desafiante": "1428538843392381071",
-      "monarca": "1428538981976379464"
+      topo: "1427195793168666634",
+      jungle: "1427195874454540339",
+      mid: "1427195943463419904",
+      adc: "1427196010769158179",
+      sup: "1427196093950591097",
+      ouro: "1427116853196488875",
+      platina: "1427116930719813642",
+      esmeralda: "1427117033958674432",
+      diamante: "1427117094549458944",
+      mestre: "1427117203853148170",
+      grao_mestre: "1428538683036012794",
+      desafiante: "1428538843392381071",
+      monarca: "1428538981976379464",
     };
 
-    // 🔹 Remove cargo "Visitante" (se existir)
-    const visitanteRole = guild.roles.cache.find(r =>
+    // 🔹 Remove cargo "Visitante"
+    const visitanteRole = guild.roles.cache.find((r) =>
       r.name.toLowerCase().includes("visitante")
     );
     if (visitanteRole && membro.roles.cache.has(visitanteRole.id)) {
@@ -155,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ephemeral: true,
     });
   } catch (error) {
-    console.error("Erro ao processar menu:", error);
+    console.error("❌ Erro ao processar menu:", error);
     await interaction.reply({
       content: "❌ Erro ao processar a seleção!",
       ephemeral: true,
@@ -181,14 +184,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
   } catch (error) {
-    console.error("Erro ao buscar dados:", error);
+    console.error("❌ Erro ao buscar dados:", error);
     await interaction.reply({ content: "❌ Erro ao consultar seus dados!", ephemeral: true });
   }
 });
 
 // =====================
-// 🔸 LOGIN
+// 🔸 LOGIN DO BOT
 // =====================
-client.login(process.env.TOKEN).catch(err => {
+if (!process.env.TOKEN) {
+  console.error("❌ TOKEN não definido nas variáveis de ambiente!");
+  process.exit(1);
+}
+
+client.login(process.env.TOKEN).catch((err) => {
   console.error("❌ Falha ao conectar o bot:", err);
 });
