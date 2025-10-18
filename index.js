@@ -205,6 +205,99 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // =====================
+// 🔸 COMANDO /queue
+// =====================
+const filas = {
+  serie_a: [],
+  serie_b: [],
+  serie_c: []
+};
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== "queue") return;
+
+  try {
+    const jogador = db.prepare("SELECT * FROM registros WHERE user_id = ?").get(interaction.user.id);
+    if (!jogador || !jogador.elo || !jogador.rota) {
+      await interaction.reply({
+        content: "❌ Você precisa se registrar primeiro com `/registrar`!",
+        flags: InteractionResponseFlags.Ephemeral
+      });
+      return;
+    }
+
+    let serie;
+    switch (jogador.elo) {
+      case "monarca":
+      case "desafiante":
+        serie = "serie_a"; break;
+      case "grao_mestre":
+      case "mestre":
+        serie = "serie_b"; break;
+      case "diamante":
+      case "esmeralda":
+      case "platina":
+      case "ouro":
+        serie = "serie_c"; break;
+      default:
+        await interaction.reply({
+          content: "⚠️ Seu elo não se enquadra em nenhuma série válida.",
+          flags: InteractionResponseFlags.Ephemeral
+        });
+        return;
+    }
+
+    if (filas[serie].includes(interaction.user.id)) {
+      await interaction.reply({
+        content: `⚠️ Você já está na fila da **${serie.replace("_", " ").toUpperCase()}**.`,
+        flags: InteractionResponseFlags.Ephemeral
+      });
+      return;
+    }
+
+    filas[serie].push(interaction.user.id);
+    await interaction.reply({
+      content: `✅ Você entrou na **fila da ${serie.replace("_", " ").toUpperCase()}** como **${jogador.rota.toUpperCase()}**.`,
+      flags: InteractionResponseFlags.Ephemeral
+    });
+
+    if (filas[serie].length >= 10) {
+      const jogadores = filas[serie].splice(0, 10);
+
+      const categoria = await interaction.guild.channels.create({
+        name: `Partida ${serie.toUpperCase()}`,
+        type: 4
+      });
+
+      const canalVoz = await interaction.guild.channels.create({
+        name: "🔊 Sala de Voz Inhouse",
+        type: 2,
+        parent: categoria.id
+      });
+
+      const canalTexto = await interaction.guild.channels.create({
+        name: "💬 sala-texto-inhouse",
+        type: 0,
+        parent: categoria.id
+      });
+
+      const time1 = jogadores.slice(0, 5);
+      const time2 = jogadores.slice(5, 10);
+
+      await canalTexto.send(`🎮 **Times encontrados para ${serie.toUpperCase()}!**\n🟥 **Time 1:** ${time1.map(id => `<@${id}>`).join(", ")}\n🟦 **Time 2:** ${time2.map(id => `<@${id}>`).join(", ")}`);
+    }
+  } catch (error) {
+    console.error("Erro no comando /queue:", error);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Ocorreu um erro ao tentar entrar na fila.",
+        flags: InteractionResponseFlags.Ephemeral
+      });
+    }
+  }
+});
+
+// =====================
 // 🔸 LOGIN
 // =====================
 client.login(process.env.TOKEN).catch(err => {
