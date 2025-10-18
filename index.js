@@ -13,8 +13,22 @@ import {
 import dotenv from "dotenv";
 import express from "express";
 import db from "./database.js";
+import { exec } from "child_process";
 
 dotenv.config();
+
+// =====================
+// 🔄 DEPLOY AUTOMÁTICO
+// =====================
+console.log("🔄 Atualizando comandos Slash...");
+exec("npm run deploy", (error, stdout, stderr) => {
+  if (error) {
+    console.error(`❌ Erro ao executar deploy: ${error.message}`);
+    return;
+  }
+  if (stderr) console.error(`⚠️ Aviso: ${stderr}`);
+  console.log(stdout);
+});
 
 // =====================
 // 🔸 KEEP-ALIVE SERVER
@@ -81,7 +95,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     // =============== /registrar ===============
     if (interaction.isChatInputCommand() && interaction.commandName === "registrar") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 }); // atualizado para não usar 'ephemeral' depreciado
 
       const eloMenu = new StringSelectMenuBuilder()
         .setCustomId("menu_elo")
@@ -156,14 +170,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.reply({
         content: `✅ ${tipo === "elo" ? "Elo" : "Rota principal"} registrado como **${valor.replace("_", " ")}**!`,
-        ephemeral: true,
+        flags: 64, // substitui ephemeral
       });
       return;
     }
 
     // =============== /meusdados ===============
     if (interaction.isChatInputCommand() && interaction.commandName === "meusdados") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
       const row = db
         .prepare("SELECT * FROM registros WHERE user_id = ?")
         .get(interaction.user.id);
@@ -181,7 +195,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // =============== /queue ===============
     if (interaction.isChatInputCommand() && interaction.commandName === "queue") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
       const jogador = db
         .prepare("SELECT * FROM registros WHERE user_id = ?")
         .get(interaction.user.id);
@@ -255,7 +269,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             .map((id) => `<@${id}>`)
             .join(", ")}\n🟦 **Time 2:** ${time2
             .map((id) => `<@${id}>`)
-            .join(", ")}`
+            .join(", ")}` 
         );
       }
     }
@@ -268,7 +282,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } else if (!interaction.replied) {
       await interaction.reply({
         content: "❌ Ocorreu um erro ao executar o comando!",
-        ephemeral: true,
+        flags: 64,
       });
     }
   }

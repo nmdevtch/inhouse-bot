@@ -1,12 +1,13 @@
 {
   "name": "inhouse-bot",
-  "version": "1.0.0",
-  "description": "Bot de registro e gerenciamento de partidas Inhouse para Discord",
+  "version": "1.0.1",
+  "description": "Bot de registro e gerenciamento de partidas Inhouse para Discord (com deploy automático de comandos).",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "deploy": "node deploy-commands.js"
+    "deploy": "node deploy-commands.js",
+    "dev": "npm run deploy && node index.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
@@ -23,7 +24,9 @@
     "inhouse",
     "wildrift",
     "discordjs",
-    "lol"
+    "lol",
+    "inhouse-bot",
+    "leagueoflegends"
   ],
   "author": "Natã de Mattos",
   "license": "MIT"
