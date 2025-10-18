@@ -6,24 +6,28 @@ import {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  PermissionsBitField
+  PermissionsBitField,
+  Events
 } from 'discord.js';
 import db from './database.js';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+// --- Inicialização do cliente Discord
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+});
 
-// --- Servidor web (mantém ativo no deploy)
+// --- Servidor web (mantém ativo no deploy, como no Render ou Railway)
 const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
 app.listen(process.env.PORT || 3000, () => console.log('🚀 Servidor web ativo!'));
 
-// --- Evento ready
-client.once('ready', () => {
+// --- Evento ready (atualizado para v15)
+client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
-// --- Comando registrar (dropdowns de rota e elo)
-client.on('interactionCreate', async (interaction) => {
+// --- Evento principal de interação
+client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isChatInputCommand()) {
     const { commandName, user, guild } = interaction;
 
@@ -74,11 +78,13 @@ client.on('interactionCreate', async (interaction) => {
         });
       }
     } catch (err) {
-      console.error(err);
-      await interaction.reply({
-        content: '❌ Ocorreu um erro ao executar o comando.',
-        flags: 64
-      });
+      console.error('❌ Erro no comando registrar:', err);
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ Ocorreu um erro ao executar o comando.',
+          flags: 64
+        });
+      }
     }
   }
 
@@ -100,7 +106,7 @@ client.on('interactionCreate', async (interaction) => {
         // Atualiza elo do jogador
         db.prepare('UPDATE players SET elo = ? WHERE id = ?').run(values[0], user.id);
 
-        // Atribui cargo “Jogador Wild Rift” e remove “Visitante”
+        // Atribui cargos no servidor
         const membro = await guild.members.fetch(user.id);
         const roleJogador = guild.roles.cache.find(r => r.name === 'Jogador Wild Rift');
         const roleVisitante = guild.roles.cache.find(r => r.name === 'Visitante');
@@ -118,13 +124,18 @@ client.on('interactionCreate', async (interaction) => {
         });
       }
     } catch (err) {
-      console.error(err);
-      await interaction.reply({
-        content: '❌ Erro ao processar sua seleção.',
-        flags: 64
-      });
+      console.error('❌ Erro ao processar interação:', err);
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ Erro ao processar sua seleção.',
+          flags: 64
+        });
+      }
     }
   }
 });
 
-client.login(process.env.TOKEN);
+// --- Login
+client.login(process.env.TOKEN).catch(err => {
+  console.error('❌ Falha ao logar no Discord:', err);
+});
