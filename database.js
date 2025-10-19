@@ -12,7 +12,12 @@ if (fs.existsSync(DB_PATH)) {
     testDb.close();
   } catch (err) {
     console.error("⚠️ Banco de dados corrompido ou inválido. Criando novo...");
-    fs.unlinkSync(DB_PATH);
+    try {
+      fs.unlinkSync(DB_PATH);
+      console.log("🗑️ Banco corrompido removido com sucesso.");
+    } catch (e) {
+      console.error("❌ Erro ao tentar remover banco antigo:", e);
+    }
   }
 }
 
@@ -25,57 +30,31 @@ db.prepare(`
     id TEXT PRIMARY KEY,
     name TEXT,
     role TEXT,
-    elo TEXT
+    elo TEXT,
+    mmr INTEGER DEFAULT 200
   )
 `).run();
 
-// --- 🕹️ Tabela genérica antiga de fila (mantida por compatibilidade)
+// --- 🕹️ Nova tabela de fila global
 db.prepare(`
-  CREATE TABLE IF NOT EXISTS queue (
+  CREATE TABLE IF NOT EXISTS queue_all (
     id TEXT PRIMARY KEY,
     name TEXT,
     role TEXT,
-    elo TEXT
+    elo TEXT,
+    mmr INTEGER
   )
 `).run();
 
-// --- 🏆 Tabelas específicas para as séries A, B e C
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS queue_a (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    role TEXT,
-    elo TEXT
-  )
-`).run();
-
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS queue_b (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    role TEXT,
-    elo TEXT
-  )
-`).run();
-
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS queue_c (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    role TEXT,
-    elo TEXT
-  )
-`).run();
-
-// --- 📊 Tabela de ranking (separada por série)
+// --- 📊 Tabela de ranking unificada (sem séries)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS ranking (
     id TEXT PRIMARY KEY,
     name TEXT,
-    serie TEXT,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
-    points INTEGER DEFAULT 0
+    points INTEGER DEFAULT 0,
+    mmr INTEGER DEFAULT 200
   )
 `).run();
 
@@ -90,21 +69,14 @@ const ensureColumn = (table, column, type) => {
 };
 
 // --- 🔍 Verificação de todas as tabelas importantes
-[
-  "players",
-  "queue",
-  "queue_a",
-  "queue_b",
-  "queue_c",
-  "ranking"
-].forEach((table) => {
+["players", "queue_all", "ranking"].forEach((table) => {
   ensureColumn(table, "name", "TEXT");
   ensureColumn(table, "role", "TEXT");
   ensureColumn(table, "elo", "TEXT");
+  ensureColumn(table, "mmr", "INTEGER");
 });
 
 // --- 🧩 Campos extras do ranking (failsafe)
-ensureColumn("ranking", "serie", "TEXT");
 ensureColumn("ranking", "wins", "INTEGER");
 ensureColumn("ranking", "losses", "INTEGER");
 ensureColumn("ranking", "points", "INTEGER");
