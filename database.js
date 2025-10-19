@@ -1,7 +1,23 @@
 // database.js
 import Database from "better-sqlite3";
+import fs from "fs";
 
-const db = new Database("inhouse.db");
+const DB_PATH = "./inhouse.db";
+
+// 🧩 Verificação de integridade do banco
+if (fs.existsSync(DB_PATH)) {
+  try {
+    const testDb = new Database(DB_PATH);
+    testDb.prepare("PRAGMA user_version;").get();
+    testDb.close();
+  } catch (err) {
+    console.error("⚠️ Banco de dados corrompido ou inválido. Criando novo...");
+    fs.unlinkSync(DB_PATH);
+  }
+}
+
+// 🗃️ Inicializa o banco
+const db = new Database(DB_PATH);
 
 // --- 🧩 Criação da tabela de jogadores
 db.prepare(`
@@ -95,4 +111,3 @@ ensureColumn("ranking", "points", "INTEGER");
 
 console.log("✅ Banco de dados inicializado com sucesso!");
 export default db;
-
