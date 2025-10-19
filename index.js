@@ -19,7 +19,30 @@ const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
 app.listen(process.env.PORT || 3000, () => console.log('🚀 Servidor web ativo!'));
 
-// --- Evento ready
+// --- IDs dos cargos (substitua pelos reais do seu servidor)
+const roleIds = {
+  jogador: '1426957458617663589',
+  visitante: '1426957075384369292',
+
+  // Rotas
+  top: '1427195793168666634',
+  jungle: '1427195874454540339',
+  mid: '1427195943463419904',
+  adc: '1427196010769158179',
+  support: '1427196093950591097',
+
+  // Elos
+  ouro: '1427116853196488875',
+  platina: '1427116930719813642',
+  esmeralda: '1427117033958674432',
+  diamante: '1427117094549458944',
+  mestre: '1427117203853148170',
+  graomestre: '1428538683036012794',
+  desafiante: '1428538843392381071',
+  monarca: '1428538981976379464'
+};
+
+// --- Evento clientReady (substituindo ready)
 client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
@@ -64,7 +87,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
             { label: 'Platina', value: 'Platina' },
             { label: 'Esmeralda', value: 'Esmeralda' },
             { label: 'Diamante', value: 'Diamante' },
-            { label: 'Mestre+', value: 'Mestre+' }
+            { label: 'Mestre+', value: 'Mestre+' },
+            { label: 'Grão-Mestre+', value: 'Grão-Mestre+' },
+            { label: 'Desafiante+', value: 'Desafiante+' },
+            { label: 'Monarca+', value: 'Monarca+' }  
           ]);
 
         await interaction.reply({
@@ -112,28 +138,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const elo = values[0];
         db.prepare('UPDATE players SET elo = ? WHERE id = ?').run(elo, user.id);
 
-        // --- Cargos
-        const roleJogador = guild.roles.cache.find(r => r.name === 'Jogador Wild Rift');
-        const roleVisitante = guild.roles.cache.find(r => r.name === 'Visitante');
+        // --- Aplicar cargos via IDs fixos
+        const cargoJogador = guild.roles.cache.get(roleIds.jogador);
+        const cargoVisitante = guild.roles.cache.get(roleIds.visitante);
+        const cargoRota = guild.roles.cache.get(roleIds[player.role.toLowerCase()]);
+        const cargoElo = guild.roles.cache.get(roleIds[elo.toLowerCase().replace('+', '')]);
 
-        // Cargos de rota
-        const rolesRotas = {
-          'Top': guild.roles.cache.find(r => r.name.toLowerCase() === 'top'),
-          'Jungle': guild.roles.cache.find(r => r.name.toLowerCase() === 'jungle'),
-          'Mid': guild.roles.cache.find(r => r.name.toLowerCase() === 'mid'),
-          'ADC': guild.roles.cache.find(r => r.name.toLowerCase() === 'adc'),
-          'Support': guild.roles.cache.find(r => r.name.toLowerCase() === 'support')
-        };
-
-        const roleRota = rolesRotas[player.role];
-
-        // --- Aplicar cargos
-        if (roleJogador) await membro.roles.add(roleJogador);
-        if (roleRota) await membro.roles.add(roleRota);
-        if (roleVisitante) await membro.roles.remove(roleVisitante);
+        if (cargoJogador) await membro.roles.add(cargoJogador);
+        if (cargoRota) await membro.roles.add(cargoRota);
+        if (cargoElo) await membro.roles.add(cargoElo);
+        if (cargoVisitante) await membro.roles.remove(cargoVisitante);
 
         await interaction.reply({
-          content: `🏆 Registro completo!\n> Rota: **${player.role}**\n> Elo: **${elo}**\n\nBem-vindo à Inhouse Wild Rift!`,
+          content: `🏆 Registro completo!\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nBem-vindo à Inhouse Wild Rift!`,
           flags: 64
         });
         return;
