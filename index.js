@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import pkg from "discord.js";
 import db from "./database.js";
-import { entrarNaFila, sairDaFila } from "./queue.js"; // ✅ atualizado
+import { entrarNaFila, sairDaFila, atualizarFilaMensagem } from "./queue.js"; // ✅ atualizado
 
 const {
   Client,
@@ -13,7 +13,6 @@ const {
   MessageFlags,
 } = pkg;
 
-// --- Inicialização do cliente Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -23,12 +22,10 @@ const client = new Client({
   ],
 });
 
-// --- Servidor Web (mantém o bot ativo)
 const app = express();
 app.get("/", (_, res) => res.send("🌐 Inhouse Bot está ativo e online!"));
 app.listen(process.env.PORT || 4000, () => console.log("🚀 Servidor web ativo!"));
 
-// --- IDs dos cargos no servidor
 const roleIds = {
   jogador: "1426957458617663589",
   visitante: "1426957075384369292",
@@ -47,7 +44,6 @@ const roleIds = {
   monarca: "1428538981976379464",
 };
 
-// --- Mapeamento Elo → MMR
 const eloToMMR = {
   Ferro: 200,
   Bronze: 200,
@@ -62,12 +58,12 @@ const eloToMMR = {
   Monarca: 200,
 };
 
-// --- Inicialização
+let filaMessage = null; // 🧠 guarda a mensagem principal da fila
+
 client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
-// --- Handler principal de interações
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isStringSelectMenu()) return;
   const { commandName, user } = interaction;
@@ -117,7 +113,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /queue
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "queue") {
-      await entrarNaFila(interaction);
+      await entrarNaFila(interaction, client, filaMessage);
+      await atualizarFilaMensagem(client, filaMessage, db); // 🔁 atualiza a fila em tempo real
       return;
     }
 
@@ -125,7 +122,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /sairdafila
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "sairdafila") {
-      await sairDaFila(interaction);
+      await sairDaFila(interaction, client, filaMessage);
+      await atualizarFilaMensagem(client, filaMessage, db); // 🔁 atualiza a fila em tempo real
+      return;
+    }
+
+    /* ---------------------------------------
+       /fila
+    ----------------------------------------*/
+    if (interaction.isChatInputCommand() && commandName === "fila") {
+      const fila = db.prepare("SELECT * FROM queue").all();
+      const roles = ["Top", "Jungle", "Mid", "ADC", "Support"];
+
+      let filaTexto = "**🎯 FILA ATUAL DE INHOUSE 🎯**\n\n";
+      if (!fila.length) filaTexto += "_Nenhum jogador na fila._";
+
+      roles.forEach((role) => {
+        const jogadores = fila.filter((p) => p.role === role);
+        filaTexto += `**${role} (${jogadores.length})**:\n${
+          jogadores.map((p) => `> ${p.name}`).join("\n") || "_vazio_"
+        }\n\n`;
+      });
+
+      const msg = await interaction.reply({ content: filaTexto });
+      filaMessage = msg; // 🧠 guarda referência para atualizações automáticas
       return;
     }
 
@@ -186,7 +206,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
           db.prepare("UPDATE ranking SET mmr = ? WHERE id = ?").run(mmr, user.id);
         }
 
-        // Atribuição de cargos
         const cargoJogador = guild.roles.cache.get(roleIds.jogador);
         const cargoVisitante = guild.roles.cache.get(roleIds.visitante);
         const cargoRota = guild.roles.cache.get(roleIds[player.role?.toLowerCase()]);
@@ -222,7 +241,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// --- Login
 client.login(process.env.TOKEN).catch((err) => {
   console.error("❌ Falha ao logar no Discord:", err);
 });
