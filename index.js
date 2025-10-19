@@ -52,25 +52,6 @@ client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
-// --- Verificação periódica para manter apelidos sincronizados
-setInterval(async () => {
-  const guild = client.guilds.cache.first();
-  if (!guild) return;
-
-  const players = db.prepare('SELECT id, name FROM players').all();
-  for (const player of players) {
-    try {
-      const membro = await guild.members.fetch(player.id);
-      if (membro && membro.nickname !== player.name) {
-        await membro.setNickname(player.name);
-        console.log(`🔄 Nickname atualizado para ${player.name} (${player.id})`);
-      }
-    } catch (err) {
-      console.warn(`⚠️ Não foi possível atualizar o nickname de ${player.name}:`, err.message);
-    }
-  }
-}, 5 * 60 * 1000); // A cada 5 minutos
-
 // --- Evento principal de interação
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isStringSelectMenu()) return;
@@ -127,7 +108,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.warn(`⚠️ Não foi possível alterar o nickname de ${nickname}:`, err.message);
       }
 
-      // Menus
+      // Menus de seleção
       const rotaMenu = new StringSelectMenuBuilder()
         .setCustomId('selecionarRota')
         .setPlaceholder('Selecione sua rota')
