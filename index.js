@@ -113,8 +113,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /queue
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "queue") {
-      await entrarNaFila(interaction, client, filaMessage);
-      await atualizarFilaMensagem(client, filaMessage, db); // 🔁 atualiza a fila em tempo real
+      await entrarNaFila(interaction);
+      await atualizarFilaMensagem(interaction, db); // 🔁 atualiza a fila em tempo real
       return;
     }
 
@@ -122,8 +122,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /sairdafila
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "sairdafila") {
-      await sairDaFila(interaction, client, filaMessage);
-      await atualizarFilaMensagem(client, filaMessage, db); // 🔁 atualiza a fila em tempo real
+      await sairDaFila(interaction);
+      await atualizarFilaMensagem(interaction, db); // 🔁 atualiza a fila em tempo real
       return;
     }
 
@@ -131,14 +131,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /fila
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "fila") {
-      const fila = db.prepare("SELECT * FROM queue").all();
+      const fila = db.prepare("SELECT * FROM queue_all").all();
       const roles = ["Top", "Jungle", "Mid", "ADC", "Support"];
 
       let filaTexto = "**🎯 FILA ATUAL DE INHOUSE 🎯**\n\n";
       if (!fila.length) filaTexto += "_Nenhum jogador na fila._";
 
       roles.forEach((role) => {
-        const jogadores = fila.filter((p) => p.role === role);
+        const jogadores = fila.filter((p) => p.role?.toLowerCase() === role.toLowerCase());
         filaTexto += `**${role} (${jogadores.length})**:\n${
           jogadores.map((p) => `> ${p.name}`).join("\n") || "_vazio_"
         }\n\n`;
@@ -180,7 +180,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const membro = await guild.members.fetch(user.id);
       const player = db.prepare("SELECT * FROM players WHERE id = ?").get(user.id);
 
-      // Escolha de rota
       if (player && !player.role && customId === "selecionarRota") {
         const rota = values[0];
         db.prepare("UPDATE players SET role = ? WHERE id = ?").run(rota, user.id);
@@ -190,7 +189,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      // Escolha de elo
       if (player && !player.elo && customId === "selecionarElo") {
         const elo = values[0];
         db.prepare("UPDATE players SET elo = ? WHERE id = ?").run(elo, user.id);
@@ -222,7 +220,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      // Re-registro indevido
       if (player && (customId === "selecionarRota" || customId === "selecionarElo")) {
         await interaction.reply({
           content: "⚠️ Você já concluiu seu registro! Caso precise alterar, contate a moderação.",
