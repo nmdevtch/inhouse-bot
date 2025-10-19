@@ -29,8 +29,13 @@ export async function entrarNaFila(interaction) {
   }
 
   // Adiciona o jogador à fila geral
-  db.prepare("INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)")
-    .run(user.id, user.username, player.role, player.elo, player.mmr);
+  db.prepare("INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)").run(
+    user.id,
+    user.username,
+    player.role,
+    player.elo,
+    player.mmr
+  );
 
   interaction.reply({
     content: `✅ Você entrou na fila geral como **${player.role.toUpperCase()}** (${player.mmr} MMR).`,
@@ -39,13 +44,12 @@ export async function entrarNaFila(interaction) {
 
   // Verifica se há jogadores suficientes (2 por função)
   const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
-
   const rolesNecessarias = ["top", "jungle", "mid", "adc", "sup"];
   const selecionados = [];
 
   for (const role of rolesNecessarias) {
     const jogadoresRole = fila.filter(p => p.role.toLowerCase() === role).slice(0, 2);
-    if (jogadoresRole.length < 2) return; // ainda não há 2 para essa função
+    if (jogadoresRole.length < 2) return; // ainda não há 2 dessa função
     selecionados.push(...jogadoresRole);
   }
 
@@ -110,7 +114,7 @@ async function criarSala(interaction, jogadores) {
     parent: categoria.id,
   });
 
-  // Separa por função e divide um de cada em cada time
+  // Separa por função e divide equilibrando o MMR
   const roles = ["top", "jungle", "mid", "adc", "sup"];
   const timeA = [];
   const timeB = [];
@@ -121,26 +125,46 @@ async function criarSala(interaction, jogadores) {
       .sort((a, b) => b.mmr - a.mmr);
 
     if (jogadoresRole.length === 2) {
-      timeA.push(jogadoresRole[0]);
-      timeB.push(jogadoresRole[1]);
+      const [jogadorAlto, jogadorBaixo] = jogadoresRole;
+      // Atribui de forma que o MMR total se equilibre
+      const totalA = timeA.reduce((acc, j) => acc + j.mmr, 0);
+      const totalB = timeB.reduce((acc, j) => acc + j.mmr, 0);
+
+      if (totalA <= totalB) {
+        timeA.push(jogadorAlto);
+        timeB.push(jogadorBaixo);
+      } else {
+        timeA.push(jogadorBaixo);
+        timeB.push(jogadorAlto);
+      }
     }
   }
 
+  // Calcula MMR total dos times
+  const totalA = timeA.reduce((acc, j) => acc + j.mmr, 0);
+  const totalB = timeB.reduce((acc, j) => acc + j.mmr, 0);
+  const diff = Math.abs(totalA - totalB);
+
   const formatarTime = (time) =>
     time
-      .map((p) => `• **${p.name}** (${p.role.toUpperCase()} - ${p.elo}, ${p.mmr} MMR)`)
+      .map(
+        (p) =>
+          `• **${p.name}** (${p.role.toUpperCase()} - ${p.elo}, ${p.mmr} MMR)`
+      )
       .join("\n");
 
   const mensagem = `
 🏆 **Nova partida iniciada!**
 
-**🟥 Time A**
+**🟥 Time A** — MMR Total: **${totalA}**
 ${formatarTime(timeA)}
 
-**🟦 Time B**
+**🟦 Time B** — MMR Total: **${totalB}**
 ${formatarTime(timeB)}
+
+⚖️ Diferença total de MMR: **${diff}**
 `;
 
   texto.send(mensagem);
-  console.log("✅ Partida criada com sucesso!");
+  console.log("✅ Partida criada e balanceada com sucesso!");
 }
