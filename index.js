@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import pkg from "discord.js";
 import db from "./database.js";
-import { addToQueue, removeFromQueue, showQueue, tryMatchmake } from "./queueSystem.js";
+import { addToQueue, removeFromQueue, showQueue, tryMatchmake } from "./queue.js";
 
 const {
   Client,
