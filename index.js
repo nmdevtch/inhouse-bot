@@ -3,10 +3,8 @@ import express from 'express';
 import {
   Client,
   GatewayIntentBits,
-  EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  PermissionsBitField,
   Events
 } from 'discord.js';
 import db from './database.js';
@@ -16,20 +14,21 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-// --- Servidor web (mantém ativo no deploy, como no Render ou Railway)
+// --- Servidor web (mantém ativo no deploy)
 const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
 app.listen(process.env.PORT || 3000, () => console.log('🚀 Servidor web ativo!'));
 
-// --- Evento ready (atualizado para v15)
+// --- Evento ready
 client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
 // --- Evento principal de interação
 client.on(Events.InteractionCreate, async (interaction) => {
+  // --- Slash command: /registrar
   if (interaction.isChatInputCommand()) {
-    const { commandName, user, guild } = interaction;
+    const { commandName, user } = interaction;
 
     try {
       if (commandName === 'registrar') {
@@ -42,7 +41,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return;
         }
 
-        // Dropdowns
+        // --- Menus suspensos
         const rotaMenu = new StringSelectMenuBuilder()
           .setCustomId('selecionarRota')
           .setPlaceholder('Selecione sua rota')
@@ -88,40 +87,65 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  // --- Interação com o dropdown
+  // --- Interações com dropdowns
   if (interaction.isStringSelectMenu()) {
     const { user, guild, customId, values } = interaction;
 
     try {
       let player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
+      const membro = await guild.members.fetch(user.id);
 
+      // --- Escolha de rota
       if (!player && customId === 'selecionarRota') {
-        // Cria registro temporário com a rota
-        db.prepare('INSERT INTO players (id, role) VALUES (?, ?)').run(user.id, values[0]);
+        const rota = values[0];
+        db.prepare('INSERT INTO players (id, role) VALUES (?, ?)').run(user.id, rota);
+
         await interaction.reply({
-          content: `✅ ${user.username}, sua rota **${values[0]}** foi registrada! Agora selecione seu elo.`,
+          content: `✅ ${user.username}, sua rota **${rota}** foi registrada! Agora selecione seu elo.`,
           flags: 64
         });
-      } else if (player && !player.elo && customId === 'selecionarElo') {
-        // Atualiza elo do jogador
-        db.prepare('UPDATE players SET elo = ? WHERE id = ?').run(values[0], user.id);
+        return;
+      }
 
-        // Atribui cargos no servidor
-        const membro = await guild.members.fetch(user.id);
+      // --- Escolha de elo
+      if (player && !player.elo && customId === 'selecionarElo') {
+        const elo = values[0];
+        db.prepare('UPDATE players SET elo = ? WHERE id = ?').run(elo, user.id);
+
+        // --- Cargos
         const roleJogador = guild.roles.cache.find(r => r.name === 'Jogador Wild Rift');
         const roleVisitante = guild.roles.cache.find(r => r.name === 'Visitante');
+
+        // Cargos de rota
+        const rolesRotas = {
+          'Top': guild.roles.cache.find(r => r.name.toLowerCase() === 'top'),
+          'Jungle': guild.roles.cache.find(r => r.name.toLowerCase() === 'jungle'),
+          'Mid': guild.roles.cache.find(r => r.name.toLowerCase() === 'mid'),
+          'ADC': guild.roles.cache.find(r => r.name.toLowerCase() === 'adc'),
+          'Support': guild.roles.cache.find(r => r.name.toLowerCase() === 'support')
+        };
+
+        const roleRota = rolesRotas[player.role];
+
+        // --- Aplicar cargos
         if (roleJogador) await membro.roles.add(roleJogador);
+        if (roleRota) await membro.roles.add(roleRota);
         if (roleVisitante) await membro.roles.remove(roleVisitante);
 
         await interaction.reply({
-          content: `🏆 Registro completo! Seu elo **${values[0]}** foi salvo. Bem-vindo à Inhouse Wild Rift!`,
+          content: `🏆 Registro completo!\n> Rota: **${player.role}**\n> Elo: **${elo}**\n\nBem-vindo à Inhouse Wild Rift!`,
           flags: 64
         });
-      } else {
+        return;
+      }
+
+      // --- Tentativa de alterar rota ou elo após registro
+      if (player && (customId === 'selecionarRota' || customId === 'selecionarElo')) {
         await interaction.reply({
-          content: '⚠️ Você já concluiu seu registro. Caso precise alterar algo, contate a moderação.',
+          content: '⚠️ Você já concluiu seu registro! Caso precise alterar algo, procure a moderação ou administração.',
           flags: 64
         });
+        return;
       }
     } catch (err) {
       console.error('❌ Erro ao processar interação:', err);
