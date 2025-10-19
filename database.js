@@ -4,27 +4,47 @@ import fs from "fs";
 
 const DB_PATH = "./inhouse.db";
 
-// 🧩 Verificação de integridade do banco
+// 🧩 Verificação de integridade
 if (fs.existsSync(DB_PATH)) {
   try {
     const testDb = new Database(DB_PATH);
     testDb.prepare("PRAGMA user_version;").get();
     testDb.close();
-  } catch (err) {
-    console.error("⚠️ Banco de dados corrompido ou inválido. Criando novo...");
-    try {
-      fs.unlinkSync(DB_PATH);
-      console.log("🗑️ Banco corrompido removido com sucesso.");
-    } catch (e) {
-      console.error("❌ Erro ao tentar remover banco antigo:", e);
-    }
+  } catch {
+    console.error("⚠️ Banco corrompido. Removendo...");
+    fs.unlinkSync(DB_PATH);
   }
 }
 
-// 🗃️ Inicializa o banco
 const db = new Database(DB_PATH);
 
-// --- 🧩 Criação da tabela de jogadores
+// --- Função para recriar tabela se estrutura antiga for detectada
+function recreateRankingIfInvalid() {
+  try {
+    const columns = db.prepare("PRAGMA table_info(ranking);").all();
+    const hasSerie = columns.some(c => c.name === "serie");
+    if (hasSerie) {
+      console.log("🧹 Removendo coluna antiga 'serie' do ranking...");
+      db.prepare("DROP TABLE IF EXISTS ranking").run();
+    }
+  } catch {
+    console.log("⚙️ Criando nova tabela ranking...");
+  }
+
+  // recria com nova estrutura
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS ranking (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      wins INTEGER DEFAULT 0,
+      losses INTEGER DEFAULT 0,
+      points INTEGER DEFAULT 0,
+      mmr INTEGER DEFAULT 200
+    )
+  `).run();
+}
+
+// --- Criação das outras tabelas
 db.prepare(`
   CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
@@ -35,7 +55,6 @@ db.prepare(`
   )
 `).run();
 
-// --- 🕹️ Nova tabela de fila global (sem divisão por série)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS queue_all (
     id TEXT PRIMARY KEY,
@@ -46,40 +65,8 @@ db.prepare(`
   )
 `).run();
 
-// --- 📊 Tabela de ranking unificada (baseada em MMR)
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS ranking (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    wins INTEGER DEFAULT 0,
-    losses INTEGER DEFAULT 0,
-    points INTEGER DEFAULT 0,
-    mmr INTEGER DEFAULT 200
-  )
-`).run();
+// --- Verifica e corrige ranking
+recreateRankingIfInvalid();
 
-// --- 🧱 Função auxiliar: garante colunas ausentes (failsafe)
-const ensureColumn = (table, column, type) => {
-  try {
-    db.prepare(`SELECT ${column} FROM ${table} LIMIT 1`).get();
-  } catch {
-    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
-    console.log(`🛠️ Coluna adicionada: ${table}.${column}`);
-  }
-};
-
-// --- 🔍 Verificação de todas as tabelas importantes
-["players", "queue_all", "ranking"].forEach((table) => {
-  ensureColumn(table, "name", "TEXT");
-  ensureColumn(table, "role", "TEXT");
-  ensureColumn(table, "elo", "TEXT");
-  ensureColumn(table, "mmr", "INTEGER");
-});
-
-// --- 🧩 Campos extras do ranking (failsafe)
-ensureColumn("ranking", "wins", "INTEGER");
-ensureColumn("ranking", "losses", "INTEGER");
-ensureColumn("ranking", "points", "INTEGER");
-
-console.log("✅ Banco de dados inicializado com sucesso!");
+console.log("✅ Banco de dados inicializado e sincronizado com sucesso!");
 export default db;
