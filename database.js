@@ -35,7 +35,7 @@ db.prepare(`
   )
 `).run();
 
-// --- 🕹️ Nova tabela de fila global
+// --- 🕹️ Nova tabela de fila global (sem divisão por série)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS queue_all (
     id TEXT PRIMARY KEY,
@@ -46,7 +46,7 @@ db.prepare(`
   )
 `).run();
 
-// --- 📊 Tabela de ranking unificada (sem séries)
+// --- 📊 Tabela de ranking unificada (baseada em MMR)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS ranking (
     id TEXT PRIMARY KEY,
