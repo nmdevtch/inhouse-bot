@@ -13,84 +13,70 @@ export async function entrarNaFila(interaction) {
     });
   }
 
-  // Determina a série com base no elo
-  let serie = null;
-  switch (player.elo) {
-    case "Desafiante":
-    case "Monarca":
-      serie = "queue_a";
-      break;
-    case "Grão Mestre":
-    case "Mestre":
-      serie = "queue_b";
-      break;
-    case "Diamante":
-    case "Gold":
-      serie = "queue_c";
-      break;
-    default:
-      return interaction.reply({
-        content: "❌ Seu elo não corresponde a nenhuma série válida.",
-        ephemeral: true,
-      });
+  // Inicializa MMR se ainda não tiver
+  if (!player.mmr) {
+    db.prepare("UPDATE players SET mmr = ? WHERE id = ?").run(200, user.id);
+    player.mmr = 200;
   }
 
-  // Verifica se o jogador já está em alguma fila
-  const filas = ["queue_a", "queue_b", "queue_c"];
-  for (const fila of filas) {
-    const exists = db.prepare(`SELECT * FROM ${fila} WHERE id = ?`).get(user.id);
-    if (exists) {
-      return interaction.reply({
-        content: "⚠️ Você já está em uma fila.",
-        ephemeral: true,
-      });
-    }
+  // Verifica se o jogador já está na fila
+  const exists = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
+  if (exists) {
+    return interaction.reply({
+      content: "⚠️ Você já está na fila.",
+      ephemeral: true,
+    });
   }
 
-  // Adiciona o jogador à fila correspondente
-  db.prepare(`INSERT INTO ${serie} (id, name, role, elo) VALUES (?, ?, ?, ?)`)
-    .run(user.id, user.username, player.role, player.elo);
+  // Adiciona o jogador à fila
+  db.prepare("INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)")
+    .run(user.id, user.username, player.role, player.elo, player.mmr);
 
   interaction.reply({
-    content: `✅ Você entrou na **Série ${serie.toUpperCase().replace("QUEUE_", "")}** (${player.elo}).`,
+    content: `✅ Você entrou na fila geral com **${player.mmr} MMR**.`,
     ephemeral: true,
   });
 
-  // Verifica se já existem 10 jogadores na fila
-  const queueList = db.prepare(`SELECT * FROM ${serie}`).all();
-  if (queueList.length === 10) {
-    await criarSala(interaction, serie, queueList);
-    db.prepare(`DELETE FROM ${serie}`).run(); // Limpa a fila após montar os times
+  // Verifica se há 10 jogadores para iniciar uma partida
+  const filaAtual = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
+  if (filaAtual.length >= 10) {
+    // Seleciona os 10 jogadores com maior MMR
+    const top10 = filaAtual.slice(0, 10);
+    await criarSala(interaction, top10);
+
+    // Remove os 10 jogadores da fila
+    const stmt = db.prepare("DELETE FROM queue_all WHERE id = ?");
+    for (const p of top10) stmt.run(p.id);
   }
 }
 
 export async function sairDaFila(interaction) {
   const user = interaction.user;
-  let removed = false;
+  const exists = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
 
-  ["queue_a", "queue_b", "queue_c"].forEach((fila) => {
-    const player = db.prepare(`SELECT * FROM ${fila} WHERE id = ?`).get(user.id);
-    if (player) {
-      db.prepare(`DELETE FROM ${fila} WHERE id = ?`).run(user.id);
-      removed = true;
-    }
-  });
-
-  if (removed) {
-    interaction.reply({ content: "🚪 Você saiu da fila.", ephemeral: true });
-  } else {
-    interaction.reply({ content: "⚠️ Você não está em nenhuma fila.", ephemeral: true });
+  if (!exists) {
+    return interaction.reply({
+      content: "⚠️ Você não está em nenhuma fila.",
+      ephemeral: true,
+    });
   }
+
+  db.prepare("DELETE FROM queue_all WHERE id = ?").run(user.id);
+  interaction.reply({
+    content: "🚪 Você saiu da fila com sucesso.",
+    ephemeral: true,
+  });
 }
 
-async function criarSala(interaction, serie, jogadores) {
+async function criarSala(interaction, jogadores) {
   const guild = interaction.guild;
-  const serieNome =
-    serie === "queue_a" ? "Série A" : serie === "queue_b" ? "Série B" : "Série C";
 
-  // Cria a categoria da série
+  // Cria a categoria "Partida Inhouse"
   const categoria = await guild.channels.create({
-    name: `🏆 ${serieNome}`,
+    name: `🏆 Inhouse - ${new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`,
     type: ChannelType.GuildCategory,
     permissionOverwrites: [
       {
@@ -100,7 +86,7 @@ async function criarSala(interaction, serie, jogadores) {
     ],
   });
 
-  // Cria canais dentro da categoria
+  // Cria canais de texto e voz
   const texto = await guild.channels.create({
     name: "📜・times",
     type: ChannelType.GuildText,
@@ -125,17 +111,26 @@ async function criarSala(interaction, serie, jogadores) {
     parent: categoria.id,
   });
 
-  // Divide os jogadores em dois times aleatórios
-  const embaralhados = jogadores.sort(() => Math.random() - 0.5);
-  const timeA = embaralhados.slice(0, 5);
-  const timeB = embaralhados.slice(5);
+  // Montagem de times balanceados (ordenados por MMR)
+  const sorted = jogadores.sort((a, b) => b.mmr - a.mmr);
+
+  const timeA = [];
+  const timeB = [];
+
+  // Distribui alternando para tentar equilibrar MMR
+  sorted.forEach((jogador, index) => {
+    if (index % 2 === 0) timeA.push(jogador);
+    else timeB.push(jogador);
+  });
 
   const formatarTime = (time) =>
-    time.map((p) => `• **${p.name}** (${p.role} - ${p.elo})`).join("\n");
+    time
+      .map((p) => `• **${p.name}** (${p.role} - ${p.elo}, ${p.mmr} MMR)`)
+      .join("\n");
 
   const mensagem = `
-🏆 **${serieNome} iniciada!**
-  
+🏆 **Nova partida iniciada!**
+
 **🟥 Time A**
 ${formatarTime(timeA)}
 

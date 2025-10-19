@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import pkg from 'discord.js';
 import db from './database.js';
-import { entrarNaFila, sairDaFila } from './queue.js';
+import { addToQueue, removeFromQueue, showQueue, tryMatchmake } from './queueSystem.js';
 
 const {
   Client,
@@ -23,7 +23,7 @@ const client = new Client({
   ],
 });
 
-// --- Servidor Web
+// --- Servidor Web (para uptime)
 const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
 app.listen(process.env.PORT || 4000, () => console.log('🚀 Servidor web ativo!'));
@@ -47,7 +47,7 @@ const roleIds = {
   monarca: '1428538981976379464',
 };
 
-// --- Evento clientReady
+// --- Evento de inicialização
 client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
@@ -110,51 +110,64 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
 
-    // --- Comando: /queue
+    // --- Comando: /queue (agora com MMR)
     if (interaction.isChatInputCommand() && commandName === 'queue') {
-      await entrarNaFila(interaction);
+      const player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
+      if (!player || !player.elo) {
+        await interaction.reply({
+          content: '⚠️ Você precisa se registrar primeiro usando **/registrar** antes de entrar na fila.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Define o MMR com base no ELO do jogador (pode ser ajustado)
+      const eloToMMR = {
+        Ferro: 800,
+        Bronze: 1000,
+        Prata: 1200,
+        Ouro: 1400,
+        Platina: 1600,
+        Esmeralda: 1800,
+        Diamante: 2000,
+        Mestre: 2200,
+        'Grão Mestre': 2400,
+        Desafiante: 2600,
+        Monarca: 2800,
+      };
+
+      const mmr = eloToMMR[player.elo] || 1000;
+      const result = addToQueue(user.id, player.name, mmr);
+      await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
+
+      // Tenta criar partida
+      const match = tryMatchmake();
+      if (match) {
+        const queueChannel = interaction.guild.channels.cache.find(c => c.name.includes('filas-inhouse'));
+        if (queueChannel) {
+          await queueChannel.send(match.message);
+        } else {
+          await interaction.followUp(match.message);
+        }
+      }
       return;
     }
 
     // --- Comando: /sairdafila
     if (interaction.isChatInputCommand() && commandName === 'sairdafila') {
-      await sairDaFila(interaction);
+      const result = removeFromQueue(user.id);
+      await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    // --- Comando: /fila (atualizado com contadores)
+    // --- Comando: /fila
     if (interaction.isChatInputCommand() && commandName === 'fila') {
-      const allQueues = [
-        { nome: 'Série A', tabela: 'queue_a' },
-        { nome: 'Série B', tabela: 'queue_b' },
-        { nome: 'Série C', tabela: 'queue_c' },
-      ];
-
-      let totalGeral = 0;
-      let resposta = '📋 **Filas Atuais:**\n';
-
-      for (const fila of allQueues) {
-        const jogadores = db.prepare(`SELECT name, role, elo FROM ${fila.tabela}`).all();
-        const count = jogadores.length;
-        totalGeral += count;
-
-        resposta += `\n**${fila.nome} (${count} jogador${count !== 1 ? 'es' : ''}):**\n`;
-        resposta += count
-          ? jogadores.map((p) => `• ${p.name} (${p.role} - ${p.elo})`).join('\n')
-          : '_Vazia_';
-        resposta += '\n';
-      }
-
-      resposta += `\n👥 **Total geral:** ${totalGeral} jogador${totalGeral !== 1 ? 'es' : ''}`;
-
-      await interaction.reply({
-        content: resposta,
-        flags: MessageFlags.Ephemeral,
-      });
+      const queueInfo = showQueue();
+      await interaction.reply({ content: queueInfo, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    // --- Interações com dropdowns
+    // --- Interações de menus
     if (interaction.isStringSelectMenu()) {
       const { guild, customId, values } = interaction;
       const membro = await guild.members.fetch(user.id);
@@ -193,7 +206,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Impedir alterações
+      // Impedir re-registro
       if (player && (customId === 'selecionarRota' || customId === 'selecionarElo')) {
         await interaction.reply({
           content: '⚠️ Você já concluiu seu registro! Caso precise alterar algo, procure a moderação.',
