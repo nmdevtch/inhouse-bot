@@ -1,48 +1,50 @@
 import 'dotenv/config';
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 
-// --- Definição dos comandos
+// --- Definição dos comandos Slash
 const commands = [
   new SlashCommandBuilder()
     .setName('registrar')
-    .setDescription('Inicia seu registro no sistema Inhouse Wild Rift.'),
-  
+    .setDescription('🎮 Inicia seu registro no sistema Inhouse Wild Rift.'),
+
   new SlashCommandBuilder()
     .setName('queue')
-    .setDescription('Entra na fila para jogar uma partida Inhouse.'),
+    .setDescription('🕹️ Entra na fila para jogar uma partida Inhouse.'),
 
   new SlashCommandBuilder()
     .setName('sairdafila')
-    .setDescription('Sai da fila atual.'),
+    .setDescription('🚪 Sai da fila atual.'),
 
   new SlashCommandBuilder()
     .setName('fila')
-    .setDescription('Mostra todos os jogadores atualmente na fila.')
+    .setDescription('📋 Mostra todos os jogadores atualmente na fila.')
 ].map(cmd => cmd.toJSON());
 
-// --- Inicialização do REST
+// --- Inicialização do cliente REST
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 async function deployCommands() {
   try {
-    console.log('🚀 Iniciando atualização dos comandos Slash...');
+    console.log('🔄 Iniciando atualização dos comandos Slash...');
 
     if (process.env.GUILD_ID) {
-      // ✅ Deploy instantâneo no servidor (guild)
+      // ✅ Registro instantâneo para testes no servidor específico
       await rest.put(
         Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
         { body: commands }
       );
-      console.log(`✅ Comandos registrados instantaneamente no servidor ${process.env.GUILD_ID}!`);
+      console.log(`✅ Comandos atualizados instantaneamente no servidor de ID: ${process.env.GUILD_ID}`);
     } else {
-      // 🌍 Fallback: registro global
+      // 🌍 Registro global (pode demorar até 1 hora para propagar)
       await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-      console.log('🌍 Comandos globais registrados (pode levar até 1 hora para aparecerem).');
+      console.log('🌍 Comandos globais registrados com sucesso!');
     }
+
+    console.log('🎯 Deploy finalizado com êxito!');
   } catch (error) {
-    console.error('❌ Erro ao registrar comandos:', error);
+    console.error('❌ Erro ao registrar comandos Slash:', error);
   }
 }
 
-// Executa automaticamente o deploy
+// --- Execução automática
 deployCommands();
