@@ -17,7 +17,7 @@ const client = new Client({
 // --- Servidor web (mantém ativo no deploy)
 const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
-app.listen(process.env.PORT || 3000, () => console.log('🚀 Servidor web ativo!'));
+app.listen(process.env.PORT || 4000, () => console.log('🚀 Servidor web ativo!'));
 
 // --- IDs dos cargos (substitua pelos reais do seu servidor)
 const roleIds = {
