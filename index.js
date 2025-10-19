@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import pkg from "discord.js";
 import db from "./database.js";
-import { addToQueue, removeFromQueue, showQueue, tryMatchmake } from "./queue.js";
+import { entrarNaFila, sairDaFila } from "./queue.js"; // ✅ atualizado
 
 const {
   Client,
@@ -124,26 +124,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /queue
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "queue") {
-      const player = db.prepare("SELECT * FROM players WHERE id = ?").get(user.id);
-      if (!player || !player.elo) {
-        return interaction.reply({
-          content: "⚠️ Você precisa se registrar primeiro usando **/registrar**.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      const mmr = eloToMMR[player.elo] || 200;
-      const result = addToQueue(user.id, player.name, mmr);
-      await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
-
-      const match = tryMatchmake();
-      if (match) {
-        const queueChannel = interaction.guild.channels.cache.find((c) =>
-          c.name.includes("filas-inhouse")
-        );
-        if (queueChannel) await queueChannel.send(match.message);
-        else await interaction.followUp(match.message);
-      }
+      await entrarNaFila(interaction); // ✅ agora usa o novo sistema
       return;
     }
 
@@ -151,17 +132,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /sairdafila
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "sairdafila") {
-      const result = removeFromQueue(user.id);
-      await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    /* ---------------------------------------
-       /fila
-    ----------------------------------------*/
-    if (interaction.isChatInputCommand() && commandName === "fila") {
-      const queueInfo = showQueue();
-      await interaction.reply({ content: queueInfo, flags: MessageFlags.Ephemeral });
+      await sairDaFila(interaction); // ✅ atualizado
       return;
     }
 
