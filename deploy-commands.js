@@ -28,15 +28,18 @@ async function deployCommands() {
     console.log('🔄 Iniciando atualização dos comandos Slash...');
 
     if (process.env.GUILD_ID) {
-      // ✅ Registro instantâneo para testes no servidor específico
+      // ✅ Registro instantâneo para ambiente de testes (guilda específica)
       await rest.put(
         Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
         { body: commands }
       );
-      console.log(`✅ Comandos atualizados instantaneamente no servidor de ID: ${process.env.GUILD_ID}`);
+      console.log(`✅ Comandos registrados instantaneamente no servidor de ID: ${process.env.GUILD_ID}`);
     } else {
-      // 🌍 Registro global (pode demorar até 1 hora para propagar)
-      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+      // 🌍 Registro global (pode levar até 1 hora para propagar)
+      await rest.put(
+        Routes.applicationCommands(process.env.CLIENT_ID),
+        { body: commands }
+      );
       console.log('🌍 Comandos globais registrados com sucesso!');
     }
 

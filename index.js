@@ -5,10 +5,12 @@ import {
   GatewayIntentBits,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  Events
+  Events,
+  InteractionContextType,
+  InteractionResponseFlags
 } from 'discord.js';
 import db from './database.js';
-import { entrarNaFila, sairDaFila } from './queue.js'; // ✅ Importa o sistema de filas
+import { entrarNaFila, sairDaFila } from './queue.js'; // ✅ Sistema de filas
 
 // --- Inicialização do cliente Discord
 const client = new Client({
@@ -20,12 +22,12 @@ const client = new Client({
   ]
 });
 
-// --- Servidor web (mantém ativo no deploy)
+// --- Servidor Web (mantém o bot online no deploy)
 const app = express();
 app.get('/', (_, res) => res.send('🌐 Inhouse Bot está ativo e online!'));
 app.listen(process.env.PORT || 4000, () => console.log('🚀 Servidor web ativo!'));
 
-// --- IDs dos cargos (substitua pelos reais do seu servidor)
+// --- IDs dos cargos
 const roleIds = {
   jogador: '1426957458617663589',
   visitante: '1426957075384369292',
@@ -66,12 +68,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (existing) {
         await interaction.reply({
           content: '⚠️ Você já está registrado! Caso precise alterar suas informações, entre em contato com a moderação.',
-          ephemeral: true
+          flags: InteractionResponseFlags.Ephemeral
         });
         return;
       }
 
-      // --- Menus suspensos
+      // --- Menus de seleção
       const rotaMenu = new StringSelectMenuBuilder()
         .setCustomId('selecionarRota')
         .setPlaceholder('Selecione sua rota')
@@ -101,41 +103,65 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ]);
 
       await interaction.reply({
-        content: '🎮 Escolha sua rota e seu elo abaixo:',
+        content: '🎮 Escolha sua **rota** e seu **elo** abaixo:',
         components: [
           new ActionRowBuilder().addComponents(rotaMenu),
           new ActionRowBuilder().addComponents(eloMenu)
         ],
-        ephemeral: true
+        flags: InteractionResponseFlags.Ephemeral
       });
     }
 
-    // --- Comando: /entrar (fila)
-    if (interaction.isChatInputCommand() && commandName === 'entrar') {
+    // --- Comando: /queue (entra na fila)
+    if (interaction.isChatInputCommand() && commandName === 'queue') {
       await entrarNaFila(interaction);
       return;
     }
 
-    // --- Comando: /sair (fila)
-    if (interaction.isChatInputCommand() && commandName === 'sair') {
+    // --- Comando: /sairdafila
+    if (interaction.isChatInputCommand() && commandName === 'sairdafila') {
       await sairDaFila(interaction);
       return;
     }
 
-    // --- Interações com dropdowns
+    // --- Comando: /fila (ver quem está na fila)
+    if (interaction.isChatInputCommand() && commandName === 'fila') {
+      const allQueues = [
+        { nome: 'Série A', tabela: 'queue_a' },
+        { nome: 'Série B', tabela: 'queue_b' },
+        { nome: 'Série C', tabela: 'queue_c' }
+      ];
+
+      let resposta = '📋 **Filas Atuais:**\n';
+      for (const fila of allQueues) {
+        const jogadores = db.prepare(`SELECT name, role, elo FROM ${fila.tabela}`).all();
+        resposta += `\n**${fila.nome}:**\n${
+          jogadores.length
+            ? jogadores.map(p => `• ${p.name} (${p.role} - ${p.elo})`).join('\n')
+            : '_Vazia_'
+        }\n`;
+      }
+
+      await interaction.reply({
+        content: resposta,
+        flags: InteractionResponseFlags.Ephemeral
+      });
+      return;
+    }
+
+    // --- Interações com os dropdowns
     if (interaction.isStringSelectMenu()) {
       const { guild, customId, values } = interaction;
-      let player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
       const membro = await guild.members.fetch(user.id);
+      let player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
 
       // Escolha de rota
       if (!player && customId === 'selecionarRota') {
         const rota = values[0];
         db.prepare('INSERT INTO players (id, name, role) VALUES (?, ?, ?)').run(user.id, user.username, rota);
-
         await interaction.reply({
           content: `✅ ${user.username}, sua rota **${rota}** foi registrada! Agora selecione seu elo.`,
-          ephemeral: true
+          flags: InteractionResponseFlags.Ephemeral
         });
         return;
       }
@@ -145,11 +171,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const elo = values[0];
         db.prepare('UPDATE players SET elo = ? WHERE id = ?').run(elo, user.id);
 
-        // --- Aplicar cargos via IDs fixos
         const cargoJogador = guild.roles.cache.get(roleIds.jogador);
         const cargoVisitante = guild.roles.cache.get(roleIds.visitante);
         const cargoRota = guild.roles.cache.get(roleIds[player.role.toLowerCase()]);
-        const cargoElo = guild.roles.cache.get(roleIds[elo.toLowerCase().replace(' ', '').replace('+', '')]);
+        const cargoElo = guild.roles.cache.get(roleIds[elo.toLowerCase().replace(/\s+/g, '')]);
 
         if (cargoJogador) await membro.roles.add(cargoJogador);
         if (cargoRota) await membro.roles.add(cargoRota);
@@ -157,17 +182,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (cargoVisitante) await membro.roles.remove(cargoVisitante);
 
         await interaction.reply({
-          content: `🏆 Registro completo!\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nBem-vindo à Inhouse Wild Rift!`,
-          ephemeral: true
+          content: `🏆 Registro completo!\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
+          flags: InteractionResponseFlags.Ephemeral
         });
         return;
       }
 
-      // Tentativa de alterar rota/elo depois do registro
+      // Impedir mudanças após registro
       if (player && (customId === 'selecionarRota' || customId === 'selecionarElo')) {
         await interaction.reply({
           content: '⚠️ Você já concluiu seu registro! Caso precise alterar algo, procure a moderação ou administração.',
-          ephemeral: true
+          flags: InteractionResponseFlags.Ephemeral
         });
         return;
       }
@@ -177,7 +202,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied) {
       await interaction.reply({
         content: '❌ Erro ao processar sua ação.',
-        ephemeral: true
+        flags: InteractionResponseFlags.Ephemeral
       });
     }
   }
