@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import pkg from "discord.js";
 import db from "./database.js";
-import { entrarNaFila, sairDaFila } from "./queue.js"; // ✅ atualizado
+import { entrarNaFila, sairDaFila } from "./queue.js";
 
 const {
   Client,
@@ -124,7 +124,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /queue
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "queue") {
-      await entrarNaFila(interaction); // ✅ agora usa o novo sistema
+      await entrarNaFila(interaction);
       return;
     }
 
@@ -132,8 +132,39 @@ client.on(Events.InteractionCreate, async (interaction) => {
        /sairdafila
     ----------------------------------------*/
     if (interaction.isChatInputCommand() && commandName === "sairdafila") {
-      await sairDaFila(interaction); // ✅ atualizado
+      await sairDaFila(interaction);
       return;
+    }
+
+    /* ---------------------------------------
+       /fila → mostra quem está aguardando
+    ----------------------------------------*/
+    if (interaction.isChatInputCommand() && commandName === "fila") {
+      const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
+      if (!fila.length) {
+        return interaction.reply({
+          content: "📭 Nenhum jogador está na fila no momento.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const roles = ["top", "jungle", "mid", "adc", "sup"];
+      let msg = "🎯 **Fila Atual (Ordenada por MMR)**\n\n";
+
+      for (const role of roles) {
+        const jogadores = fila.filter(p => p.role.toLowerCase() === role);
+        if (jogadores.length > 0) {
+          msg += `**${role.toUpperCase()}** (${jogadores.length})\n`;
+          msg += jogadores
+            .map(p => `> ${p.name} — ${p.elo} (${p.mmr} MMR)`)
+            .join("\n");
+          msg += "\n\n";
+        }
+      }
+
+      msg += `👥 **Total de jogadores na fila:** ${fila.length}`;
+
+      return interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
     }
 
     /* ---------------------------------------
