@@ -1,15 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
-import {
+import pkg from 'discord.js';
+import db from './database.js';
+import { entrarNaFila, sairDaFila } from './queue.js';
+
+const {
   Client,
   GatewayIntentBits,
   ActionRowBuilder,
   StringSelectMenuBuilder,
   Events,
-  InteractionResponseFlags,
-} from 'discord.js';
-import db from './database.js';
-import { entrarNaFila, sairDaFila } from './queue.js';
+} = pkg;
 
 // --- Inicialização do cliente Discord
 const client = new Client({
@@ -63,7 +64,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (existing) {
         await interaction.reply({
           content: '⚠️ Você já está registrado! Caso precise alterar suas informações, entre em contato com a moderação.',
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
         return;
       }
@@ -71,7 +72,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Solicita nickname ao jogador
       await interaction.reply({
         content: '✏️ Digite seu **nickname completo** (ex: `MeuNick#1234`) no chat.',
-        flags: InteractionResponseFlags.Ephemeral,
+        ephemeral: true,
       });
 
       // Aguarda mensagem do usuário
@@ -81,7 +82,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!collected.size) {
         await interaction.followUp({
           content: '⏰ Tempo esgotado! Use `/registrar` novamente para reiniciar o registro.',
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
         return;
       }
@@ -91,7 +92,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!nickname.includes('#')) {
         await interaction.followUp({
           content: '❌ O nickname precisa conter uma tag. Exemplo: `MeuNick#1234`.',
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
         return;
       }
@@ -142,7 +143,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new ActionRowBuilder().addComponents(rotaMenu),
           new ActionRowBuilder().addComponents(eloMenu),
         ],
-        flags: InteractionResponseFlags.Ephemeral,
+        ephemeral: true,
       });
     }
 
@@ -178,7 +179,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.reply({
         content: resposta,
-        flags: InteractionResponseFlags.Ephemeral,
+        ephemeral: true,
       });
       return;
     }
@@ -195,7 +196,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         db.prepare('UPDATE players SET role = ? WHERE id = ?').run(rota, user.id);
         await interaction.reply({
           content: `✅ ${player.name}, sua rota **${rota}** foi registrada! Agora selecione seu elo.`,
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
         return;
       }
@@ -217,7 +218,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         await interaction.reply({
           content: `🏆 Registro completo!\n> **Nickname:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
         return;
       }
@@ -226,7 +227,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (player && (customId === 'selecionarRota' || customId === 'selecionarElo')) {
         await interaction.reply({
           content: '⚠️ Você já concluiu seu registro! Caso precise alterar algo, procure a moderação.',
-          flags: InteractionResponseFlags.Ephemeral,
+          ephemeral: true,
         });
       }
     }
@@ -235,7 +236,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied) {
       await interaction.reply({
         content: '❌ Erro ao processar sua ação.',
-        flags: InteractionResponseFlags.Ephemeral,
+        ephemeral: true,
       });
     }
   }
