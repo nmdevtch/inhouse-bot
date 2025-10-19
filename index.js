@@ -70,45 +70,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      // Solicita nickname
-      await interaction.reply({
-        content: '✏️ Digite seu **nickname completo** (ex: `MeuNick#1234`) no chat.',
-        flags: MessageFlags.Ephemeral,
-      });
+      db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').run(user.id, user.username);
 
-      const filter = (m) => m.author.id === user.id;
-      const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 60000 });
-
-      if (!collected.size) {
-        await interaction.followUp({
-          content: '⏰ Tempo esgotado! Use `/registrar` novamente para reiniciar o registro.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      const nickname = collected.first().content.trim();
-
-      if (!nickname.includes('#')) {
-        await interaction.followUp({
-          content: '❌ O nickname precisa conter uma tag. Exemplo: `MeuNick#1234`.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      // Salva no banco
-      db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').run(user.id, nickname);
-
-      // Tenta alterar o nickname do usuário
-      const membro = await interaction.guild.members.fetch(user.id);
-      try {
-        await membro.setNickname(nickname);
-      } catch (err) {
-        console.warn(`⚠️ Não foi possível alterar o nickname de ${nickname}:`, err.message);
-      }
-
-      // Menus de seleção
       const rotaMenu = new StringSelectMenuBuilder()
         .setCustomId('selecionarRota')
         .setPlaceholder('Selecione sua rota')
@@ -137,8 +100,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           { label: 'Monarca', value: 'Monarca' },
         ]);
 
-      await interaction.followUp({
-        content: `🎮 ${nickname}, agora escolha sua **rota** e seu **elo** abaixo:`,
+      await interaction.reply({
+        content: '🎮 Escolha sua **rota** e seu **elo** abaixo:',
         components: [
           new ActionRowBuilder().addComponents(rotaMenu),
           new ActionRowBuilder().addComponents(eloMenu),
@@ -217,7 +180,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (cargoVisitante) await membro.roles.remove(cargoVisitante);
 
         await interaction.reply({
-          content: `🏆 Registro completo!\n> **Nickname:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
+          content: `🏆 Registro completo!\n> **Nome:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -235,7 +198,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.error('❌ Erro ao processar interação:', err);
     if (!interaction.replied) {
       await interaction.reply({
-        content: '❌ Erro ao processar sua ação.',
+        content: '❌ Ocorreu um erro ao processar sua ação.',
         flags: MessageFlags.Ephemeral,
       });
     }
