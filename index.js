@@ -10,6 +10,7 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   Events,
+  MessageFlags,
 } = pkg;
 
 // --- Inicialização do cliente Discord
@@ -51,6 +52,25 @@ client.once(Events.ClientReady, (client) => {
   console.log(`✅ Bot iniciado com sucesso como ${client.user.tag}`);
 });
 
+// --- Verificação periódica para manter apelidos sincronizados
+setInterval(async () => {
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+
+  const players = db.prepare('SELECT id, name FROM players').all();
+  for (const player of players) {
+    try {
+      const membro = await guild.members.fetch(player.id);
+      if (membro && membro.nickname !== player.name) {
+        await membro.setNickname(player.name);
+        console.log(`🔄 Nickname atualizado para ${player.name} (${player.id})`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Não foi possível atualizar o nickname de ${player.name}:`, err.message);
+    }
+  }
+}, 5 * 60 * 1000); // A cada 5 minutos
+
 // --- Evento principal de interação
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isStringSelectMenu()) return;
@@ -64,25 +84,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (existing) {
         await interaction.reply({
           content: '⚠️ Você já está registrado! Caso precise alterar suas informações, entre em contato com a moderação.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
 
-      // Solicita nickname ao jogador
+      // Solicita nickname
       await interaction.reply({
         content: '✏️ Digite seu **nickname completo** (ex: `MeuNick#1234`) no chat.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
 
-      // Aguarda mensagem do usuário
       const filter = (m) => m.author.id === user.id;
       const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 60000 });
 
       if (!collected.size) {
         await interaction.followUp({
           content: '⏰ Tempo esgotado! Use `/registrar` novamente para reiniciar o registro.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -92,15 +111,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!nickname.includes('#')) {
         await interaction.followUp({
           content: '❌ O nickname precisa conter uma tag. Exemplo: `MeuNick#1234`.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
 
-      // Salva o nickname no banco
+      // Salva no banco
       db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').run(user.id, nickname);
 
-      // Tenta alterar o nickname do usuário no Discord
+      // Tenta alterar o nickname do usuário
       const membro = await interaction.guild.members.fetch(user.id);
       try {
         await membro.setNickname(nickname);
@@ -108,7 +127,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.warn(`⚠️ Não foi possível alterar o nickname de ${nickname}:`, err.message);
       }
 
-      // --- Cria os menus de seleção
+      // Menus
       const rotaMenu = new StringSelectMenuBuilder()
         .setCustomId('selecionarRota')
         .setPlaceholder('Selecione sua rota')
@@ -143,7 +162,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new ActionRowBuilder().addComponents(rotaMenu),
           new ActionRowBuilder().addComponents(eloMenu),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -179,7 +198,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.reply({
         content: resposta,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -196,7 +215,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         db.prepare('UPDATE players SET role = ? WHERE id = ?').run(rota, user.id);
         await interaction.reply({
           content: `✅ ${player.name}, sua rota **${rota}** foi registrada! Agora selecione seu elo.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -218,7 +237,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         await interaction.reply({
           content: `🏆 Registro completo!\n> **Nickname:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -227,7 +246,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (player && (customId === 'selecionarRota' || customId === 'selecionarElo')) {
         await interaction.reply({
           content: '⚠️ Você já concluiu seu registro! Caso precise alterar algo, procure a moderação.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     }
@@ -236,7 +255,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied) {
       await interaction.reply({
         content: '❌ Erro ao processar sua ação.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
