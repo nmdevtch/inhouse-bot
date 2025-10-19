@@ -28,25 +28,33 @@ export async function entrarNaFila(interaction) {
     });
   }
 
-  // Adiciona o jogador à fila
+  // Adiciona o jogador à fila geral
   db.prepare("INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)")
     .run(user.id, user.username, player.role, player.elo, player.mmr);
 
   interaction.reply({
-    content: `✅ Você entrou na fila geral com **${player.mmr} MMR**.`,
+    content: `✅ Você entrou na fila geral como **${player.role.toUpperCase()}** (${player.mmr} MMR).`,
     ephemeral: true,
   });
 
-  // Verifica se há 10 jogadores para iniciar uma partida
-  const filaAtual = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
-  if (filaAtual.length >= 10) {
-    // Seleciona os 10 jogadores com maior MMR
-    const top10 = filaAtual.slice(0, 10);
-    await criarSala(interaction, top10);
+  // Verifica se há jogadores suficientes (2 por função)
+  const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
 
-    // Remove os 10 jogadores da fila
-    const stmt = db.prepare("DELETE FROM queue_all WHERE id = ?");
-    for (const p of top10) stmt.run(p.id);
+  const rolesNecessarias = ["top", "jungle", "mid", "adc", "sup"];
+  const selecionados = [];
+
+  for (const role of rolesNecessarias) {
+    const jogadoresRole = fila.filter(p => p.role.toLowerCase() === role).slice(0, 2);
+    if (jogadoresRole.length < 2) return; // ainda não há 2 para essa função
+    selecionados.push(...jogadoresRole);
+  }
+
+  if (selecionados.length === 10) {
+    await criarSala(interaction, selecionados);
+
+    // Remove os jogadores que entraram na partida
+    const delStmt = db.prepare("DELETE FROM queue_all WHERE id = ?");
+    for (const p of selecionados) delStmt.run(p.id);
   }
 }
 
@@ -71,7 +79,7 @@ export async function sairDaFila(interaction) {
 async function criarSala(interaction, jogadores) {
   const guild = interaction.guild;
 
-  // Cria a categoria "Partida Inhouse"
+  // Cria a categoria da partida
   const categoria = await guild.channels.create({
     name: `🏆 Inhouse - ${new Date().toLocaleTimeString("pt-BR", {
       hour: "2-digit",
@@ -79,24 +87,15 @@ async function criarSala(interaction, jogadores) {
     })}`,
     type: ChannelType.GuildCategory,
     permissionOverwrites: [
-      {
-        id: guild.roles.everyone,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
+      { id: guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
     ],
   });
 
-  // Cria canais de texto e voz
+  // Canais de texto e voz
   const texto = await guild.channels.create({
     name: "📜・times",
     type: ChannelType.GuildText,
     parent: categoria.id,
-    permissionOverwrites: [
-      {
-        id: guild.roles.everyone,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-    ],
   });
 
   const vozA = await guild.channels.create({
@@ -111,21 +110,25 @@ async function criarSala(interaction, jogadores) {
     parent: categoria.id,
   });
 
-  // Montagem de times balanceados (ordenados por MMR)
-  const sorted = jogadores.sort((a, b) => b.mmr - a.mmr);
-
+  // Separa por função e divide um de cada em cada time
+  const roles = ["top", "jungle", "mid", "adc", "sup"];
   const timeA = [];
   const timeB = [];
 
-  // Distribui alternando para tentar equilibrar MMR
-  sorted.forEach((jogador, index) => {
-    if (index % 2 === 0) timeA.push(jogador);
-    else timeB.push(jogador);
-  });
+  for (const role of roles) {
+    const jogadoresRole = jogadores
+      .filter(j => j.role.toLowerCase() === role)
+      .sort((a, b) => b.mmr - a.mmr);
+
+    if (jogadoresRole.length === 2) {
+      timeA.push(jogadoresRole[0]);
+      timeB.push(jogadoresRole[1]);
+    }
+  }
 
   const formatarTime = (time) =>
     time
-      .map((p) => `• **${p.name}** (${p.role} - ${p.elo}, ${p.mmr} MMR)`)
+      .map((p) => `• **${p.name}** (${p.role.toUpperCase()} - ${p.elo}, ${p.mmr} MMR)`)
       .join("\n");
 
   const mensagem = `
@@ -139,4 +142,5 @@ ${formatarTime(timeB)}
 `;
 
   texto.send(mensagem);
+  console.log("✅ Partida criada com sucesso!");
 }

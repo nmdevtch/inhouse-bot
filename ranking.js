@@ -3,7 +3,7 @@ import db from "./database.js";
 import { EmbedBuilder } from "discord.js";
 
 /**
- * Exibe o ranking das Séries A, B e C (estilo Brasileirão)
+ * Exibe o ranking global baseado em MMR e desempenho
  * @param {Object} interaction - interação do Discord
  */
 export async function exibirRanking(interaction) {
@@ -13,91 +13,61 @@ export async function exibirRanking(interaction) {
     if (!players.length) {
       await interaction.reply({
         content: "⚠️ Nenhum jogador registrado no banco de dados.",
-        flags: 64, // Resposta privada
+        flags: 64, // resposta privada
       });
       return;
     }
 
-    // --- Monta dados simulados do ranking (sem SG e empates)
+    // --- Gera dados simulados de ranking
     const rankingData = players.map((p) => {
-      let serie = "C";
-      if (["Desafiante", "Monarca"].includes(p.elo)) serie = "A";
-      else if (["Grão-Mestre", "Mestre"].includes(p.elo)) serie = "B";
-
-      // Geração de dados simulados
       const vitorias = Math.floor(Math.random() * 15);
       const derrotas = Math.floor(Math.random() * 10);
-      const pontos = vitorias * 3; // 3 pontos por vitória, nenhum por derrota
+      const pontos = vitorias * 3;
+      const mmr = p.mmr || 200; // padrão fixo atual
 
       return {
         id: p.id,
         name: p.name || "Jogador",
         role: p.role || "Indefinido",
         elo: p.elo || "Sem elo",
-        serie,
+        mmr,
         pontos,
         vitorias,
         derrotas,
       };
     });
 
-    // --- Agrupa jogadores por série
-    const series = {
-      A: rankingData.filter((p) => p.serie === "A"),
-      B: rankingData.filter((p) => p.serie === "B"),
-      C: rankingData.filter((p) => p.serie === "C"),
-    };
+    // --- Ordena o ranking por MMR > Pontos > Vitórias
+    rankingData.sort((a, b) => {
+      if (b.mmr !== a.mmr) return b.mmr - a.mmr;
+      if (b.pontos !== a.pontos) return b.pontos - a.pontos;
+      return b.vitorias - a.vitorias;
+    });
 
-    // --- Ordena o ranking (prioriza pontos e depois vitórias)
-    for (const serie of Object.keys(series)) {
-      series[serie].sort((a, b) => {
-        if (b.pontos !== a.pontos) return b.pontos - a.pontos;
-        return b.vitorias - a.vitorias;
-      });
-    }
-
-    // --- Função para calcular aproveitamento (%)
+    // --- Calcula aproveitamento (%)
     const calcAproveitamento = (p) => {
       const jogos = p.vitorias + p.derrotas;
       if (jogos === 0) return "0.0";
-      return ((p.pontos / (jogos * 3)) * 100).toFixed(1);
+      return ((p.vitorias / jogos) * 100).toFixed(1);
     };
 
-    // --- Função para gerar texto do ranking
-    const gerarTabela = (serie) => {
-      if (series[serie].length === 0) return "Nenhum jogador nesta série ainda.";
-      return series[serie]
-        .map(
-          (p, i) =>
-            `**${i + 1}.** ${p.name} — 🏅 ${p.elo}\n> 🎯 Pts: **${p.pontos}** | ✅ V: **${p.vitorias}** | ❌ D: **${p.derrotas}** | 📊 ${calcAproveitamento(p)}%`
-        )
-        .join("\n");
-    };
+    // --- Monta o texto do ranking
+    const rankingTexto = rankingData
+      .map(
+        (p, i) =>
+          `**${i + 1}.** ${p.name} — 🏅 ${p.elo}\n> 🎯 MMR: **${p.mmr}** | 🏆 Pts: **${p.pontos}** | ✅ V: **${p.vitorias}** | ❌ D: **${p.derrotas}** | 📊 ${calcAproveitamento(p)}%`
+      )
+      .join("\n");
 
-    // --- Embeds das séries
-    const embedA = new EmbedBuilder()
-      .setTitle("🏆 Série A — Desafiante / Monarca")
-      .setColor("#FFD700")
-      .setDescription(gerarTabela("A"))
-      .setFooter({ text: "Inhouse Wild Rift • Série A" });
+    // --- Cria o embed do ranking global
+    const embed = new EmbedBuilder()
+      .setTitle("🏆 Ranking Global — Inhouse Wild Rift")
+      .setColor("#00AEEF")
+      .setDescription(rankingTexto)
+      .setFooter({ text: "Sistema de MMR Unificado • Todos contra todos" });
 
-    const embedB = new EmbedBuilder()
-      .setTitle("🥈 Série B — Grão-Mestre / Mestre")
-      .setColor("#C0C0C0")
-      .setDescription(gerarTabela("B"))
-      .setFooter({ text: "Inhouse Wild Rift • Série B" });
-
-    const embedC = new EmbedBuilder()
-      .setTitle("🥉 Série C — Diamante / Ouro")
-      .setColor("#CD7F32")
-      .setDescription(gerarTabela("C"))
-      .setFooter({ text: "Inhouse Wild Rift • Série C" });
-
-    // --- Envia os rankings juntos
-    await interaction.reply({
-      embeds: [embedA, embedB, embedC],
-    });
-
+    // --- Envia o ranking
+    await interaction.reply({ embeds: [embed] });
   } catch (err) {
     console.error("❌ Erro ao gerar ranking:", err);
     await interaction.reply({
