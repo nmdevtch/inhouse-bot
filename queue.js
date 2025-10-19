@@ -1,9 +1,9 @@
 import { ChannelType, PermissionFlagsBits } from "discord.js";
 import db from "./database.js";
 
-let filaMessage = null; // Mensagem fixa para atualizações ao vivo
+let filaMessage = null; // Mensagem fixa para atualização automática
 
-// 🧩 Função principal: entrar na fila
+// ✅ Entrar na fila
 export async function entrarNaFila(interaction) {
   const user = interaction.user;
   const member = await interaction.guild.members.fetch(user.id);
@@ -16,32 +16,28 @@ export async function entrarNaFila(interaction) {
     });
   }
 
-  // Inicializa MMR se ainda não tiver
+  // Inicializa MMR padrão
   if (!player.mmr) {
     db.prepare("UPDATE players SET mmr = ? WHERE id = ?").run(200, user.id);
     player.mmr = 200;
   }
 
   // Verifica se já está na fila
-  const exists = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
-  if (exists) {
+  const existe = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
+  if (existe) {
     return interaction.reply({
       content: "⚠️ Você já está na fila.",
       ephemeral: true,
     });
   }
 
-  // Adiciona à fila
-  db.prepare("INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)").run(
-    user.id,
-    user.username,
-    player.role,
-    player.elo,
-    player.mmr
-  );
+  // Adiciona jogador
+  db.prepare(
+    "INSERT INTO queue_all (id, name, role, elo, mmr) VALUES (?, ?, ?, ?, ?)"
+  ).run(user.id, user.username, player.role, player.elo, player.mmr);
 
   await interaction.reply({
-    content: `✅ Você entrou na fila geral como **${player.role.toUpperCase()}** (${player.mmr} MMR).`,
+    content: `✅ Você entrou na fila como **${player.role.toUpperCase()}** (${player.mmr} MMR).`,
     ephemeral: true,
   });
 
@@ -49,12 +45,12 @@ export async function entrarNaFila(interaction) {
   await verificarPartida(interaction);
 }
 
-// 🧩 Sair da fila
+// ✅ Sair da fila
 export async function sairDaFila(interaction) {
   const user = interaction.user;
-  const exists = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
+  const existe = db.prepare("SELECT * FROM queue_all WHERE id = ?").get(user.id);
 
-  if (!exists) {
+  if (!existe) {
     return interaction.reply({
       content: "⚠️ Você não está em nenhuma fila.",
       ephemeral: true,
@@ -62,6 +58,7 @@ export async function sairDaFila(interaction) {
   }
 
   db.prepare("DELETE FROM queue_all WHERE id = ?").run(user.id);
+
   await interaction.reply({
     content: "🚪 Você saiu da fila com sucesso.",
     ephemeral: true,
@@ -70,11 +67,11 @@ export async function sairDaFila(interaction) {
   await atualizarFila(interaction.client);
 }
 
-// 🧩 Comando /fila — mostra e mantém atualizada
+// ✅ Mostrar fila (comando /fila)
 export async function mostrarFila(interaction) {
   const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
 
-  if (fila.length === 0) {
+  if (!fila.length) {
     return interaction.reply({
       content: "📭 Nenhum jogador na fila no momento.",
       ephemeral: true,
@@ -82,26 +79,40 @@ export async function mostrarFila(interaction) {
   }
 
   const textoFila = fila
-    .map((p, i) => `${i + 1}. **${p.name}** — ${p.role.toUpperCase()} | ${p.elo} | ${p.mmr} MMR`)
+    .map(
+      (p, i) =>
+        `${i + 1}. **${p.name}** — ${p.role.toUpperCase()} | ${p.elo} | ${p.mmr} MMR`
+    )
     .join("\n");
 
-  const msg = `🧩 **Jogadores na fila (${fila.length})**\n${textoFila}`;
+  const msg = `🧩 **Jogadores na Fila (${fila.length})**\n${textoFila}\n\n_Atualizado automaticamente._`;
 
-  // Se já existe uma mensagem fixa da fila, atualiza ela
-  if (filaMessage && filaMessage.editable) {
-    await filaMessage.edit(msg);
+  // Atualiza mensagem fixa (visível para todos)
+  const canalFila = interaction.guild.channels.cache.find(
+    (c) => c.name === "fila-geral"
+  );
+  if (canalFila) {
+    const mensagens = await canalFila.messages.fetch({ limit: 10 });
+    const existente = mensagens.find((m) => m.author.id === interaction.client.user.id);
+
+    if (existente) {
+      filaMessage = existente;
+      await existente.edit(msg);
+    } else {
+      filaMessage = await canalFila.send(msg);
+    }
   }
 
-  const resposta = await interaction.reply({ content: msg, ephemeral: true });
-  return resposta;
+  return interaction.reply({ content: msg, ephemeral: true });
 }
 
-// 🔁 Atualiza automaticamente a fila em tempo real
+// 🔁 Atualizar fila em tempo real
 export async function atualizarFila(client) {
-  const canalFila = client.channels.cache.find(c => c.name === "fila-geral");
-  if (!canalFila) return; // se o canal não existir, não faz nada
+  const canalFila = client.channels.cache.find((c) => c.name === "fila-geral");
+  if (!canalFila) return;
 
   const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
+
   const textoFila =
     fila.length === 0
       ? "📭 Nenhum jogador na fila no momento."
@@ -114,10 +125,10 @@ export async function atualizarFila(client) {
 
   const msg = `🧩 **Fila Atual (${fila.length})**\n${textoFila}\n\n_Atualizado automaticamente._`;
 
-  // Se ainda não existe mensagem fixa, cria uma
+  // Atualiza mensagem fixa se existir
   if (!filaMessage) {
     const mensagens = await canalFila.messages.fetch({ limit: 10 });
-    const existente = mensagens.find(m => m.author.id === client.user.id);
+    const existente = mensagens.find((m) => m.author.id === client.user.id);
 
     if (existente) {
       filaMessage = existente;
@@ -130,34 +141,33 @@ export async function atualizarFila(client) {
   }
 }
 
-// 🧩 Verifica se há jogadores suficientes e cria partida
+// ⚔️ Verifica se há jogadores suficientes e cria partida automaticamente
 async function verificarPartida(interaction) {
   const fila = db.prepare("SELECT * FROM queue_all ORDER BY mmr DESC").all();
   const rolesNecessarias = ["top", "jungle", "mid", "adc", "sup"];
   const selecionados = [];
 
   for (const role of rolesNecessarias) {
-    const jogadoresRole = fila.filter(p => p.role.toLowerCase() === role).slice(0, 2);
-    if (jogadoresRole.length < 2) return; // ainda não há 2 dessa função
+    const jogadoresRole = fila.filter((p) => p.role.toLowerCase() === role).slice(0, 2);
+    if (jogadoresRole.length < 2) return;
     selecionados.push(...jogadoresRole);
   }
 
   if (selecionados.length === 10) {
     await criarSala(interaction, selecionados);
 
-    // Remove os jogadores que entraram na partida
-    const delStmt = db.prepare("DELETE FROM queue_all WHERE id = ?");
-    for (const p of selecionados) delStmt.run(p.id);
+    // Remove os jogadores da fila
+    const del = db.prepare("DELETE FROM queue_all WHERE id = ?");
+    for (const p of selecionados) del.run(p.id);
 
     await atualizarFila(interaction.client);
   }
 }
 
-// ⚔️ Criação automática de salas
+// 🏆 Criação de salas automáticas e times balanceados
 async function criarSala(interaction, jogadores) {
   const guild = interaction.guild;
 
-  // Cria categoria
   const categoria = await guild.channels.create({
     name: `🏆 Inhouse - ${new Date().toLocaleTimeString("pt-BR", {
       hour: "2-digit",
@@ -169,7 +179,6 @@ async function criarSala(interaction, jogadores) {
     ],
   });
 
-  // Cria canais
   const texto = await guild.channels.create({
     name: "📜・times",
     type: ChannelType.GuildText,
@@ -188,40 +197,42 @@ async function criarSala(interaction, jogadores) {
     parent: categoria.id,
   });
 
-  // Monta times balanceados
+  // Monta e balanceia times
   const roles = ["top", "jungle", "mid", "adc", "sup"];
   const timeA = [];
   const timeB = [];
 
   for (const role of roles) {
     const jogadoresRole = jogadores
-      .filter(j => j.role.toLowerCase() === role)
+      .filter((j) => j.role.toLowerCase() === role)
       .sort((a, b) => b.mmr - a.mmr);
 
     if (jogadoresRole.length === 2) {
-      const [jogadorAlto, jogadorBaixo] = jogadoresRole;
-      const totalA = timeA.reduce((acc, j) => acc + j.mmr, 0);
-      const totalB = timeB.reduce((acc, j) => acc + j.mmr, 0);
+      const [high, low] = jogadoresRole;
+      const totalA = timeA.reduce((a, j) => a + j.mmr, 0);
+      const totalB = timeB.reduce((a, j) => a + j.mmr, 0);
 
       if (totalA <= totalB) {
-        timeA.push(jogadorAlto);
-        timeB.push(jogadorBaixo);
+        timeA.push(high);
+        timeB.push(low);
       } else {
-        timeA.push(jogadorBaixo);
-        timeB.push(jogadorAlto);
+        timeA.push(low);
+        timeB.push(high);
       }
     }
   }
 
-  const totalA = timeA.reduce((acc, j) => acc + j.mmr, 0);
-  const totalB = timeB.reduce((acc, j) => acc + j.mmr, 0);
+  const totalA = timeA.reduce((a, j) => a + j.mmr, 0);
+  const totalB = timeB.reduce((a, j) => a + j.mmr, 0);
   const diff = Math.abs(totalA - totalB);
 
   const formatarTime = (time) =>
-    time.map(p => `• **${p.name}** (${p.role.toUpperCase()} - ${p.elo}, ${p.mmr} MMR)`).join("\n");
+    time
+      .map((p) => `• **${p.name}** (${p.role.toUpperCase()} - ${p.elo}, ${p.mmr} MMR)`)
+      .join("\n");
 
   const mensagem = `
-🏆 **Nova partida iniciada!**
+🏆 **Nova Partida Criada!**
 
 **🟥 Time A** — MMR Total: **${totalA}**
 ${formatarTime(timeA)}
@@ -229,9 +240,9 @@ ${formatarTime(timeA)}
 **🟦 Time B** — MMR Total: **${totalB}**
 ${formatarTime(timeB)}
 
-⚖️ Diferença total de MMR: **${diff}**
+⚖️ Diferença de MMR: **${diff}**
 `;
 
-  texto.send(mensagem);
+  await texto.send(mensagem);
   console.log("✅ Partida criada e balanceada com sucesso!");
 }
