@@ -8,6 +8,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     role TEXT,
     elo TEXT
   )
@@ -18,6 +19,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS queue (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     role TEXT,
     elo TEXT
   )
@@ -28,6 +30,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS queue_a (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     role TEXT,
     elo TEXT
   )
@@ -37,6 +40,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS queue_b (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     role TEXT,
     elo TEXT
   )
@@ -46,6 +50,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS queue_c (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     role TEXT,
     elo TEXT
   )
@@ -56,6 +61,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS ranking (
     id TEXT PRIMARY KEY,
     name TEXT,
+    nickname TEXT,
     serie TEXT,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
@@ -83,6 +89,7 @@ const ensureColumn = (table, column, type) => {
   "ranking"
 ].forEach((table) => {
   ensureColumn(table, "name", "TEXT");
+  ensureColumn(table, "nickname", "TEXT");
   ensureColumn(table, "role", "TEXT");
   ensureColumn(table, "elo", "TEXT");
 });
