@@ -122,7 +122,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // --- Comando: /fila
+    // --- Comando: /fila (atualizado com contadores)
     if (interaction.isChatInputCommand() && commandName === 'fila') {
       const allQueues = [
         { nome: 'Série A', tabela: 'queue_a' },
@@ -130,15 +130,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { nome: 'Série C', tabela: 'queue_c' },
       ];
 
+      let totalGeral = 0;
       let resposta = '📋 **Filas Atuais:**\n';
+
       for (const fila of allQueues) {
         const jogadores = db.prepare(`SELECT name, role, elo FROM ${fila.tabela}`).all();
-        resposta += `\n**${fila.nome}:**\n${
-          jogadores.length
-            ? jogadores.map((p) => `• ${p.name} (${p.role} - ${p.elo})`).join('\n')
-            : '_Vazia_'
-        }\n`;
+        const count = jogadores.length;
+        totalGeral += count;
+
+        resposta += `\n**${fila.nome} (${count} jogador${count !== 1 ? 'es' : ''}):**\n`;
+        resposta += count
+          ? jogadores.map((p) => `• ${p.name} (${p.role} - ${p.elo})`).join('\n')
+          : '_Vazia_';
+        resposta += '\n';
       }
+
+      resposta += `\n👥 **Total geral:** ${totalGeral} jogador${totalGeral !== 1 ? 'es' : ''}`;
 
       await interaction.reply({
         content: resposta,
@@ -151,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isStringSelectMenu()) {
       const { guild, customId, values } = interaction;
       const membro = await guild.members.fetch(user.id);
-      let player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
+      const player = db.prepare('SELECT * FROM players WHERE id = ?').get(user.id);
 
       // Escolha de rota
       if (player && !player.role && customId === 'selecionarRota') {
@@ -180,7 +187,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (cargoVisitante) await membro.roles.remove(cargoVisitante);
 
         await interaction.reply({
-          content: `🏆 Registro completo!\n> **Nome:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue**.`,
+          content: `🏆 Registro completo!\n> **Nome:** ${player.name}\n> **Rota:** ${player.role}\n> **Elo:** ${elo}\n\nAgora você pode entrar na fila usando **/queue** no canal #filas-inhouse.`,
           flags: MessageFlags.Ephemeral,
         });
         return;

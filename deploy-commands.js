@@ -6,8 +6,8 @@ import { REST, Routes, SlashCommandBuilder } from "discord.js";
 const commands = [
   new SlashCommandBuilder()
     .setName("registrar")
-    .setDescription("🎮 Inicia seu registro no sistema Arena Mythos House."),
-
+    .setDescription("🎮 Inicia seu registro no sistema da Arena Mythos House."),
+  
   new SlashCommandBuilder()
     .setName("queue")
     .setDescription("🕹️ Entra na fila para jogar uma partida Inhouse."),
@@ -18,7 +18,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("fila")
-    .setDescription("📋 Mostra todos os jogadores atualmente na fila.")
+    .setDescription("📋 Mostra os jogadores em cada série e o total geral.")
 ].map(cmd => cmd.toJSON());
 
 // --- 🔐 Inicialização do cliente REST
@@ -34,14 +34,14 @@ async function deployCommands() {
     }
 
     if (process.env.GUILD_ID) {
-      // ✅ Registro instantâneo para um servidor específico (teste)
+      // ✅ Registro instantâneo (modo de teste / desenvolvimento)
       await rest.put(
         Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
         { body: commands }
       );
-      console.log(`✅ Comandos registrados instantaneamente no servidor: ${process.env.GUILD_ID}`);
+      console.log(`✅ Comandos registrados instantaneamente no servidor de teste: ${process.env.GUILD_ID}`);
     } else {
-      // 🌍 Registro global (leva até 1h para propagar)
+      // 🌍 Registro global (pode levar até 1h para propagar)
       await rest.put(
         Routes.applicationCommands(process.env.CLIENT_ID),
         { body: commands }
@@ -50,6 +50,7 @@ async function deployCommands() {
     }
 
     console.log("🎯 Deploy dos comandos finalizado com êxito!");
+    console.log(`📦 Comandos: ${commands.map(c => c.name).join(", ")}`);
   } catch (error) {
     console.error("❌ Erro ao registrar comandos Slash:");
     console.error(error);
